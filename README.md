@@ -38,3 +38,6 @@ python .\\server.py
 
 
 
+versione 1.1.0
+aggiunta la radio ft-718
+problemi molti pulsanti hanno smesso di funzionare
