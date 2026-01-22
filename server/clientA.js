@@ -1,6 +1,7 @@
 import { jsonfind } from './module.js';
 let port;
 var buff = "";
+var icomm = false;
 var valrusb;
 let pingInterval;
 let refreshInterval;
@@ -29,6 +30,26 @@ async function manageWebSocket(start) {
     }else if(socket&&socket.readyState==3)socket=null;
   }
 }
+
+function toBytes(commL) {
+  // Caso 1: è già un array di byte (Uint8Array o array normale)
+  if (Array.isArray(commL)) {
+    return commL.map(comm => toBytes(comm));
+  }
+
+  // Caso 2: è una stringa esadecimale tipo "FE FE 5E E0 05 FD"
+  if (typeof commL === "string") {
+    return Uint8Array.from(
+      commL
+        .trim()
+        .split("")        // split su spazi multipli
+        .map(b => parseInt(b, 16))
+    );
+  }
+
+  throw new Error("commL deve essere una stringa o un array di byte");
+}
+
 async function setupWebSocket() {
   socket.onopen = () => {
     console.log('WebSocket connected');
@@ -103,7 +124,7 @@ async function setupWebSocket() {
                 message: oldvalrusb === valrusb?"err":valrusb,
                 data: radioInfo
               };
-              console.log(pongData);
+              console.log(valrusb,pongData);
               socket.send(JSON.stringify(pongData));
             };
 
@@ -122,13 +143,21 @@ async function setupWebSocket() {
           console.log(commL);
           document.getElementById("Freq").innerHTML = JSON.stringify(radioInfo, null, 2);
           const writer = port.writable.getWriter();
-          writer.write(new TextEncoder().encode(commL)).then(() => {
+          
+	  let bytes = toBytes(commL);
+	  const selectedRadio = getOV("Radio", 1);
+	  if(!Array.isArray(commL))bytes=[bytes];
+          for (const cmd of bytes) {
+          writer.write(cmd).then(() => {
             writer.releaseLock();
           }).catch(error => {
             console.error("Failed to write message:", error);
           });
+          await new Promise(r => setTimeout(r, 20,jsonConfig.radio[selectedRadio]["awaitms"]));
+	  }
         } else if (alldata.type === 'setEvent') {
           let commL = await generateCommand(radioInfo,alldata.event,"setformat",radioInfo);
+	  console.log(commL);
           // Update the innerHTML with the result
           document.getElementById("Freq").innerHTML = JSON.stringify(radioInfo, null, 2);
           const writer = port.writable.getWriter();
@@ -189,12 +218,24 @@ document.getElementById('startPingBtn').addEventListener('click', () => {
     let oldinfo = {};
 document.getElementById('autorefresh').addEventListener('click', async () => {
 
-  if (refreshInterval) {clearInterval(refreshInterval);console.log('refresh started');document.getElementById('autorefresh').textContent = "start autorefresh";}else {
+  if (refreshInterval) {clearInterval(refreshInterval);console.log('refresh started');document.getElementById('autorefresh').textContent = "start autorefresh";}else {      
+    await decodeString("",{});
+    const selectedRadio = getOV("Radio", 1);
     refreshInterval = setInterval( async () => {
       
       const writer = port.writable.getWriter();
-      
-      await writer.write(new TextEncoder().encode("IF;OI;FT;RM0;SC;"));
+	  const req = jsonConfig.radio[selectedRadio]["inforequest"];
+
+      if(jsonConfig.radio[selectedRadio]["type"]==="text")await writer.write(new TextEncoder().encode(req));
+      if(jsonConfig.radio[selectedRadio]["type"]==="binary")if (Array.isArray(req[0])) {
+			// È una lista di comandi
+			for (const cmd of req) {
+				await writer.write(new Uint8Array(cmd));
+			}
+		} else {
+			// È un singolo comando
+			await writer.write(new Uint8Array(req));
+		}
       
       writer.releaseLock();
       
@@ -208,7 +249,7 @@ document.getElementById('autorefresh').addEventListener('click', async () => {
         
         if(JSON.stringify(radioInfo) !== JSON.stringify(oldinfo)){socket.send(JSON.stringify(data));oldinfo = radioInfo;}
       
-    }, 500); // Ping every 5 seconds
+    }, 20*jsonConfig.radio[selectedRadio]["awaitms"]); // Ping every 5 seconds
     console.log('refresh started');
     document.getElementById('autorefresh').textContent = "stop autorefresh";
   }
@@ -302,9 +343,73 @@ if(document.getElementById('serverping'))document.getElementById('serverping').a
 });
 document.getElementById('serialWrite0').addEventListener('click', async () => {
   const writer = port.writable.getWriter();
-  await writer.write(new TextEncoder().encode("IF;"));
+  await decodeString("",{});
+  const selectedRadio = getOV("Radio", 1);
+  if(jsonConfig.radio[selectedRadio]["type"]==="text")await writer.write(new TextEncoder().encode(jsonConfig.radio[selectedRadio]["frequencerequest"]));
+  if(jsonConfig.radio[selectedRadio]["type"]==="binary")await writer.write(Uint8Array.from(jsonConfig.radio[selectedRadio]["frequencerequest"]));
   writer.releaseLock();
 });
+
+function getBytes(chunk) {
+    // Caso 1: stringa (uno o più caratteri)
+    if (typeof chunk === "string") {
+        const arr = [];
+        for (let i = 0; i < chunk.length; i++) {
+            arr.push(chunk.charCodeAt(i));
+        }
+        return arr;
+    }
+
+    // Caso 2: numero singolo
+    if (typeof chunk === "number") {
+        return [chunk];
+    }
+
+    // Caso 3: Uint8Array
+    if (chunk instanceof Uint8Array) {
+        return Array.from(chunk);
+    }
+
+    // Caso 4: ArrayBuffer
+    if (chunk instanceof ArrayBuffer) {
+        return Array.from(new Uint8Array(chunk));
+    }
+
+    console.warn("Tipo sconosciuto:", chunk);
+    return [];
+}
+
+function endsWithAwaitend(buff, awaitend) {
+    // Caso 1: awaitend è un singolo carattere
+    if (typeof awaitend === "string" && awaitend.length === 1) {
+        return buff.endsWith(awaitend);
+    }
+
+    // Caso 2: awaitend è una stringa lunga
+    if (typeof awaitend === "string") {
+        return buff.endsWith(awaitend);
+    }
+
+    // Caso 3: awaitend è un numero (byte)
+    if (typeof awaitend === "number") {
+        return buff.charCodeAt(buff.length - 1) === awaitend;
+    }
+
+    // Caso 4: awaitend è un array di byte
+    if (Array.isArray(awaitend)) {
+        if (buff.length < awaitend.length) return false;
+
+        for (let i = 0; i < awaitend.length; i++) {
+            const buffByte = buff.charCodeAt(buff.length - awaitend.length + i);
+            if (buffByte !== awaitend[i]) return false;
+        }
+        return true;
+    }
+
+    console.warn("Tipo awaitend non gestito:", awaitend);
+    return false;
+}
+
 document.getElementById('SetRadio').addEventListener('click', async () => {
 port = await navigator.serial.requestPort({});
 var speed = getOV("SerialSpeed",0);
@@ -312,20 +417,32 @@ var stopbits = getOV("stopBits",0);
 var databits = getOV("dataBits",0);
 var parity = getOV("parity",1);
 console.log("baudRate:"+speed+"\nstopBits:"+stopbits+"\nparity:"+parity+"\ndataBits:"+databits);
-await port.open({ baudRate: [speed] , stopBits: [stopbits] , parity: [parity] , dataBits: [databits]});  
-const appendStream = new WritableStream({write(chunk) {
+await port.open({ baudRate: [speed] , stopBits: [stopbits] , parity: [parity] , dataBits: [databits]});
+await decodeString("",{});
+const selectedRadio = getOV("Radio", 1);  
+const appendStream = new WritableStream({write(bytes) {
+const byte = getBytes(bytes);
+
+for (const biit of byte) {
+const chunk = String.fromCharCode(biit);
+
   buff = buff + chunk;
-  if(chunk==";"){
-    //console.log("USB:"+buff);
+  if(!icomm && jsonConfig.radio[selectedRadio]["awaitstart"] && endsWithAwaitend(buff,jsonConfig.radio[selectedRadio]["awaitstart"])){
+    icomm=true;
+    buff = String.fromCharCode(...jsonConfig.radio[selectedRadio]["awaitstart"]);
+  }
+  if(endsWithAwaitend(buff,jsonConfig.radio[selectedRadio]["awaitend"])){
+    console.log("USB:"+buff);
     valrusb = buff;
     buff = "";
+    icomm = false;
     
       decodeString(valrusb,radioInfo).then(async (decoded) => {
-          let tempinf = {};
-          tempinf["VFOA frequency"] = decoded["VFOA frequency"];
-          await generateSetCommands({},tempinf);
+          //let tempinf = {};
+          //tempinf["VFOA frequency"] = decoded["VFOA frequency"];
+          //await generateSetCommands({},tempinf);
           radioInfo=decoded;
-          radioInfo["BAND"] = tempinf["BAND"];
+          //radioInfo["BAND"] = tempinf["BAND"];
           // Update the innerHTML with the result
           document.getElementById("Freq").innerHTML = JSON.stringify(decoded, null, 2);
           //createRequest("GT",decoded,"read").then(decoded => {console.log(decoded);});
@@ -335,8 +452,8 @@ const appendStream = new WritableStream({write(chunk) {
         });
     
   }
-}});
-port.readable.pipeThrough(new TextDecoderStream()).pipeTo(appendStream);
+}}});
+port.readable.pipeTo(appendStream);
 });
 function getOV(ss,i){var e = document.getElementById(ss);var strSpd = e.options[e.selectedIndex].value;return i==0?parseInt(strSpd):strSpd;}
 
@@ -350,12 +467,172 @@ document.getElementById('sendcommBtn').addEventListener('click', async () => {
   // Release the lock after writing
   writer.releaseLock();
 });
+function normalizeRadioInfo(decoded) {
+    const selectedRadio = getOV("Radio", 1);
+    const info = jsonConfig.radio[selectedRadio].information;
 
+    // Copia per evitare mutazioni indesiderate
+    const result = { ...decoded };
 
+    // 1) Applica preset per i campi mancanti
+    for (const key in info) {
+        if (!(key in result)) {
+            const entry = info[key];
+            if (entry && entry.preset !== undefined) {
+                result[key] = entry.preset;
+            }
+        }
+    }
+
+    // 2) Applica preset per i campi dei comandi (P1, P2, P3…)
+    const commands = jsonConfig.radio[selectedRadio].commands;
+    for (const cmd in commands) {
+        const command = commands[cmd];
+
+        for (const p in command) {
+            if (p.startsWith("P")) {
+                const desc = command[p]; // es: "PC", "RADIO", "VFOA frequency"
+                if (!(desc in result)) {
+                    // Se esiste un preset in information, applicalo
+                    if (info[desc] && info[desc].preset !== undefined) {
+                        result[desc] = info[desc].preset;
+                    }
+                }
+            }
+        }
+    }
+
+    return result;
+}
+function decodeWithWildcard(dataString, format, commandConfig = {}) {
+  const decodedResult = {};
+  let currentIndex = 0;
+  const totalLength = dataString.length;
+  // Get the selected radio
+  const selectedRadio = getOV("Radio", 1);
+  // Trova se esiste un campo wildcard
+  const wildcardIndex = format.findIndex(f => f.length === "...");
+  const hasWildcard = wildcardIndex !== -1;
+  format.forEach((entry, i) => {
+    const { param, length } = entry;
+
+    // Caso 1: campo normale a lunghezza fissa
+    if (length !== "...") {
+      const segment = dataString.slice(currentIndex, currentIndex + length);
+      currentIndex += length;
+      let desk = commandConfig?commandConfig[param]:null;
+    let val = "";
+    
+    if(jsonConfig.radio[selectedRadio]["type"]==="binary")if (segment instanceof Uint8Array) {
+    val = Array.from(segment).join(",");
+} else if (typeof segment === "string") {
+    // Converti ogni carattere in byte
+    const arr = Array.from(segment, c => c.charCodeAt(0));
+    val = arr.join(",");
+} else {
+    val = segment;
+}
+    if(jsonConfig.radio[selectedRadio]["type"]==="text")val = segment;
+      decodedResult[param] = {
+        value: val,
+        description: desk
+      };
+      return;
+    }
+
+    // Caso 2: campo wildcard
+    // Tutto ciò che resta, esclusi i campi dopo il wildcard
+    const fieldsAfter = format.length - i - 1;
+
+    // Calcola quanti caratteri devono essere riservati ai campi successivi
+    let reservedLength = 0;
+    for (let j = i + 1; j < format.length; j++) {
+      reservedLength += format[j].length;
+    }
+
+    const endWildcard = totalLength - reservedLength;
+    const segment = dataString.slice(currentIndex, endWildcard);
+    currentIndex = endWildcard;
+    let desk = commandConfig?commandConfig[param]:null;
+    let val = "";
+    
+    if(jsonConfig.radio[selectedRadio]["type"]==="binary")if (segment instanceof Uint8Array) {
+    val = Array.from(segment).join(",");
+} else if (typeof segment === "string") {
+    // Converti ogni carattere in byte
+    const arr = Array.from(segment, c => c.charCodeAt(0));
+    val = arr.join(",");
+} else {
+    val = segment;
+}
+    if(jsonConfig.radio[selectedRadio]["type"]==="text")val = segment;
+    decodedResult[param] = {
+      value: val,
+      description: desk
+    };
+  });
+
+  return decodedResult;
+}
+function decodeBCD5(byteString) {
+    const bytes = byteString.split(",").reverse().map(n => parseInt(n));
+    let result = "";
+    for (const b of bytes) {
+        const hi = (b >> 4) & 0x0F;
+        const lo = b & 0x0F;
+        result += hi.toString() + lo.toString();
+    }
+    return parseInt(result, 10);
+}
+function encodeBCD5(freq) {
+    // freq deve essere un numero, es: 7039000
+    let s = freq.toString().padStart(10, "0"); // 10 cifre per 5 byte BCD
+    const bytes = [];
+
+    for (let i = 0; i < 10; i += 2) {
+        const hi = parseInt(s[i], 10);
+        const lo = parseInt(s[i + 1], 10);
+        bytes.push((hi << 4) | lo);
+    }
+
+    return bytes.reverse().join(",");
+}
+function validateCapturedParams(decodedResult, information) {
+    for (const paramName in information) {
+        const config = information[paramName];
+
+        // Se esiste un preset, confrontalo
+        if (config.preset) {
+            const expected = config.preset;
+            const actual = decodedResult[paramName]?.value;
+
+            if(actual && expected!==actual)return false;
+        }
+    }
+
+    return true;
+}
+function findMatchingFormat(inputString, format, information, commandConfig) {
+    const inputLength = inputString.length;
+    console.log("find f for:",inputString);
+    // Normalizza: se format è singolo array → lo mette dentro un array
+    const formats = Array.isArray(format[0]) ? format : [format];
+
+    for (const fmt of formats) {
+		const totalLength = fmt.reduce((sum, item) => sum + (item.length || 0), 0);
+        const decodedResult=decodeWithWildcard(inputString, fmt, commandConfig);
+		
+	    
+        console.log("format",totalLength,"/",inputLength,":",fmt,);
+        console.log(decodedResult);
+        if (totalLength === inputLength && validateCapturedParams(decodedResult,information)) {
+            return fmt; // ritorna il format che combacia
+        }
+    }
+
+    return null; // nessun format con la stessa lunghezza
+}
 async function decodeString(inputString, oldresult = {}, codeformat = "answer") {
-  // Extract the command identifier (e.g., "IF")
-  const command = inputString.slice(0, 2);
-
   // Fetch the configuration JSON asynchronously
   if(!jsonConfig)try {
     const response = await fetch("/config.json");
@@ -374,7 +651,12 @@ async function decodeString(inputString, oldresult = {}, codeformat = "answer") 
     console.error(`Radio "${selectedRadio}" not found in configuration.`);
     return oldresult; // Return oldresult unchanged if radio is not found
   }
-
+  if(inputString==="")return;
+  // Extract the command identifier (e.g., "IF")
+  let jsonr=decodeWithWildcard(inputString, jsonConfig.radio[selectedRadio]["struct"]);
+  const command = jsonr.command.value;
+  console.log(command);
+  
   // Get the command configuration
   const commandConfig = jsonConfig.radio[selectedRadio].commands[command];
   if (!commandConfig) {
@@ -412,23 +694,17 @@ async function decodeString(inputString, oldresult = {}, codeformat = "answer") 
 	}
 
 
-  const dataString = inputString.slice(2, -1); // Remove command and semicolon
-  const decodedResult = {};
-  let currentIndex = 0;
-
   // Parse and decode the input string
-  format.forEach(entry => {
-    const { param, length } = entry;
-    const segment = dataString.slice(currentIndex, currentIndex + length);
-    currentIndex += length;
-    decodedResult[param] = {
-      value: segment,
-      description: commandConfig[param]
-    };
-  });
+  
+  format=findMatchingFormat(inputString, format, jsonConfig.radio[selectedRadio].information, commandConfig)
+  if (!format) {
+      throw new Error(`format is no founded on ${codeformat}`);
+  }
+  const decodedResult=decodeWithWildcard(inputString, format, commandConfig);
+  console.log(decodedResult);
 
   // Merge decodedResult into oldresult
-  const updatedResult = { ...oldresult };
+  let updatedResult = { ...oldresult };
   for (const key in decodedResult) {
     const paramDescription = decodedResult[key].description;
     const rawValue = decodedResult[key].value;
@@ -436,6 +712,9 @@ async function decodeString(inputString, oldresult = {}, codeformat = "answer") 
     // Handle decoding from "information" if it exists
     const info = jsonConfig.radio[selectedRadio].information?.[paramDescription];
     let finalValue = rawValue;
+	if (info && info.decodeType === "BCD5") {
+		finalValue = decodeBCD5(rawValue);
+	}
     if (info) {
     let Iformat = "format";
     let Idecode = "decode";
@@ -472,7 +751,7 @@ async function decodeString(inputString, oldresult = {}, codeformat = "answer") 
     // Update the oldresult with the decoded value
     updatedResult[paramDescription] = finalValue;
   }
-
+  updatedResult = normalizeRadioInfo(updatedResult);
   return updatedResult; // Return the updated result
 }
 
@@ -551,9 +830,26 @@ async function createRequest(inputString, oldresult = {}, codeType = "read") {
     currentIndex += length;
   });
 
-  return resultString + ";"; // Append the semicolon to finalize the request
+  return resultString + jsonConfig.radio[selectedRadio]["awaitend"]; // Append the semicolon to finalize the request
 }
+function capturecommand(key,formatReference,command,information){
+	if (!Array.isArray(formatReference))return null;
+	if(Array.isArray(formatReference[0])){formatReference.forEach(format => capturecommand(key,format,command));return null;}
+	let allParamsExist = true;
 
+    // Map the P list to actual keys (e.g., P1 -> VFOA frequency)
+    const resolvedKeys = formatReference.map(entry => command[entry.param]); // Resolve keys like P1 -> VFOA frequency
+
+    // Check if the current key is in the resolved keys
+    if (!resolvedKeys.includes(key)) {
+        return; // Skip this command if the key isn't in the resolved keys
+    }
+
+    // If all conditions are satisfied, assign the command
+    if (allParamsExist) {
+		return {"commandKey":key,"setFormat":formatReference};
+    }
+}
 async function generateSetCommands(oldresult, newresult) {
   // Fetch the configuration JSON asynchronously
   if(!jsonConfig)try {
@@ -605,35 +901,12 @@ async function generateSetCommands(oldresult, newresult) {
           : commandsConfig[cmd][command.setformat]; // Resolve string reference
 
         // Check if the key exists in the parameters and ensure all required params exist
-        if (Array.isArray(formatReference)) {
-          let allParamsExist = true;
+        const cmdk = capturecommand(key, formatReference, command, information);
 
-          // Map the P list to actual keys (e.g., P1 -> VFOA frequency)
-          const resolvedKeys = formatReference.map(entry => command[entry.param]); // Resolve keys like P1 -> VFOA frequency
-
-          // Check if the current key is in the resolved keys
-          if (!resolvedKeys.includes(key)) {
-          continue; // Skip this command if the key isn't in the resolved keys
-          }
-
-          // Ensure all required keys exist in oldresult or newresult
-          for (const param of resolvedKeys) {
-          if (!(param in { ...oldresult, ...newresult })) if(information[param] && information[param].preset){
-            oldresult[param] = information[param].preset;
-            newresult[param] = information[param].preset;
-          }else{
-            allParamsExist = false; // One required key is missing
-            break; // Exit early
-          }
-          }
-
-          // If all conditions are satisfied, assign the command
-          if (allParamsExist) {
-          commandKey = cmd; // Set the command key
-          setFormat = formatReference; // Set the format reference
-          break; // Exit the loop after finding a valid command
-          }
-        }
+		//if (cmdk?.commandKey) commandKey = cmdk.commandKey;
+		if (cmdk)commandKey=cmd;
+		if (cmdk?.setFormat) setFormat = cmdk.setFormat;
+        
       }
 
       await generateCommand(oldresult,commandKey, setFormat,newresult, commandList, jsonConfig,key);
@@ -672,30 +945,44 @@ async function generateCommand(oldresult,ScommandKey, typeFormat,newresult={}, c
 	let setFormat;
   
   let commandKey=!commandsConfig[ScommandKey]?commandlist[ScommandKey]:ScommandKey;
-  //console.log("Sc:",ScommandKey," ck:",commandKey," tf:",typeFormat);
+  console.log("Sc:",ScommandKey," ck:",commandKey," tf:",typeFormat);
   if(commandKey)setFormat=Array.isArray(typeFormat)?typeFormat:commandsConfig[commandKey][typeFormat];
+        console.log("comm:",commandKey);console.log("set:",setFormat);
+        console.log("conf:",commandsConfig);console.log("list:",commandlist);
 	if (commandKey && setFormat) {
         // Build the command using the setformat
         let command = commandsConfig[commandKey];
-        let commandString = commandKey;
+        let commandString = "";//commandKey;
 
         for (const { param, length } of setFormat) {
         	// Resolve the human-readable key (e.g., P1 -> VFOA frequency)
           const resolvedKey = command[param];
-
+          //console.log("information:",information);console.log("resolvedKey:",resolvedKey);
           // Get the value from oldresult or newresult
           let value = newresult[resolvedKey] || oldresult[resolvedKey] || "";
+          // Encoding custom
 
           // Check if the value needs validation/decoding
           if (information && information[resolvedKey]) {
           let Iformat = "format";
           let Idecode = "decode";
+
+	  if (information[resolvedKey].encodeType) {
+		const enc = information[resolvedKey].encodeType;
+
+		if (enc === "BCD5") {
+			value = encodeBCD5(parseInt(value, 10));
+		}
+	  }else{
+
           let typeF = Array.isArray(typeFormat)?"setformat":typeFormat;
           if(!information[resolvedKey][Iformat])Iformat = typeF === "setformat"?"setformat":typeF === "answerformat"?"ansformat":"readformat";
           if(!information[resolvedKey][Idecode])Idecode = typeF === "setformat"?"setdecode":typeF === "answerformat"?"ansdecode":"readdecode";
           const format = information[resolvedKey][Iformat];
           const decode = information[resolvedKey][Idecode];
-
+          
+          //console.log("format:",format);console.log("decode:",decode);
+          if(format==="command")value=commandKey;
           if (decode && Array.isArray(decode)) {
             // Map value using decode array
             const decodedIndex = decode.indexOf(value);
@@ -713,19 +1000,28 @@ async function generateCommand(oldresult,ScommandKey, typeFormat,newresult={}, c
             }
           }
           }
-
+          }
+          let ndec = value;
           // Pad the value to match the required length
-          commandString += value.toString().padStart(length, "0");
+	  if(jsonConfig.radio[selectedRadio]["type"]==="text")value=value.toString().padStart(length, "0")
+	  if(jsonConfig.radio[selectedRadio]["type"]==="binary"){const bytes = value.split(",").map(n => parseInt(n, 10));
+	  value = String.fromCharCode(...bytes);}
+
+          console.log("for:",resolvedKey,"param:",param," value:",value," no decode:",ndec);
+
+          commandString += value;
         }
 
         if(command.beforeset)commandList.push(await generateCommandsupport(oldresult,command.beforeset,newresult,[],jsonConfig));
         
-        commandList.push(commandString + ";"); // Append the command with a semicolon
+        commandList.push(commandString); // Append the command with a semicolon
         if(command.ausiliar)await setausiliar(oldresult,command.ausiliar,newresult);
       } else {
         console.warn(`No valid set command found for parameter "${key}".`);
       }
-	return commandList.join("");
+        const split = jsonConfig.radio[selectedRadio]["splitcmd"];
+	if(split && split==1)return commandList;
+	if(!split || split==0)return commandList.join("");
 }
 async function setausiliar(oldresult,ausiliar,newresult={}) {
 	for(const {action,Nlist,list,incision} of ausiliar){
