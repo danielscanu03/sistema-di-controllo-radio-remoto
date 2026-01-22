@@ -1,0 +1,136 @@
+html, body {
+  height: 100%; /* Ensure the full viewport height is used */
+  width: 100%;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center; /* Center both horizontally and vertically */
+  font-family: Arial, sans-serif;
+  background-color: #f3f3f3;
+  color: #333;
+  margin: 20px;
+}
+.vanisherButton {
+        position: fixed; /* Fixed relative to the viewport */
+        top: 50%; /* Center vertically on the screen */
+        left: 50%; /* Center horizontally on the screen */
+        transform: translate(-50%, -50%); /* Correct centering */
+        padding: 32px 60px;
+        font-size: 64px;
+        color: white;
+        background-color: red;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 1000; /* Ensures it appears above all other elements */
+    }
+h1 {
+  color: #0044cc;
+}
+#connection {
+  margin-left: 10px;
+}
+    .advancedcontainer{
+      width: 100%;
+  		max-width: 100%;
+    }
+.container {
+  width: 800px;
+  margin: auto;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.flex-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+button {
+  margin: 5px;
+  padding: 10px 15px;
+  background-color: #0044cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+button:hover {
+  background-color: #003399;
+}
+select, input[type="text"] {
+  margin: 10px 0;
+  padding: 5px;
+  width: 100%;
+  max-width: 200px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+    .containerblack { 
+      width: 100%; /* Adjust width dynamically */ 
+      /*max-width: 400px; Prevent excessive scaling */ 
+      background-color: #000; /* Container background */ 
+      color: #0f0; /* Green text */ 
+      font-family: Arial, sans-serif; 
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center; 
+      box-sizing: border-box; /* Ensure padding doesn't affect size */
+    }
+
+    .indicators { 
+      display: flex; /* Flexbox layout for horizontal alignment */ 
+      justify-content: space-between; /* Spread indicators evenly */ 
+      flex-wrap: nowrap; /* Prevent carriage return */ 
+      font-size: calc(1.5vw); /* Indicator font proportional to container width */ 
+      margin-bottom: 10px; 
+    }
+    .indicators span { 
+      flex: 1; /* Equal space for each indicator */ 
+      text-align: center; /* Center-align each indicator */ 
+    }
+    .frequency {
+      display: flex; /* Use Flexbox for arranging digits */
+      justify-content: center; /* Center align digits horizontally */
+      align-items: center; /* Align vertically */
+      gap: 2px; /* Reduce space between individual digits */
+      font-size: calc(8vw); /* Font size proportional to container width */
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .containerblack button {
+      background-color: #555;
+      color: #0f0;
+    }
+
+    .clarifier {
+      font-size: calc(3vw); /* Proportional to container width */ 
+    }
+    .digit {
+      word-spacing: -5px;
+      cursor: pointer; /* Make digits clickable */
+      user-select: none; /* Prevent text selection */
+    }
+    .separator {
+      word-spacing: -5px;
+      font-weight: bold;
+    }
+  .keyboard-container {
+    margin: auto;
+    position: relative; /* Ensures all buttons are positioned within this container */
+    width: 60%; /* Adjust to desired size */
+    height: 200px; /* Set height of the keyboard area */
+    background-color: #111;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+  }
+	.keyboard-container button{
+		width: 15%;
+		height: 15%;
+		display: flex;
+		justify-content: center; /* Horizontal centering */
+    align-items: center; /* Vertical centering */
+    text-align: center; /* Center-align multiline text */
+	}

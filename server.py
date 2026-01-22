@@ -1,0 +1,195 @@
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
+import uvicorn
+
+from Fhtml import index_html, clientA_html, clientB_html
+from Fscript import websocket_script_js, module_js
+
+
+from pathlib import Path
+import os
+import json
+
+from MessageHandler import MessageHandler, ClientData
+from BufferManager import BufferManager
+
+app = FastAPI(title = "AI server",description = "")
+
+
+BASE_DIR = Path(__file__).resolve().parent
+
+BLOCKS_DIR = BASE_DIR / "blocks"
+
+
+class ChatHandler(MessageHandler):
+    def __init__(self):
+        super().__init__()
+        self.buffer = BufferManager(8192);
+        self.bufferPCM = BufferManager(24576);
+    async def forward_message(self, message: str, data: ClientData, 
+                              message2: str, sender=None):
+        print(f"forward_message to {data.pack}:{data.pack2}")
+        if sender is None:
+            # broadcast a tutti i client in clientAs
+            if message:
+                modified_message = {
+                    "from": "server",
+                    "pack": data.pack,
+                    "data": message
+                }
+                for ws, client_data in self.clientAs:
+                    try:
+                        await ws.send_text(json.dumps(modified_message))
+                    except Exception as e:
+                        print(f"Failed to send to client {client_data.username}: {e}")
+                data.pack += 1
+            return  # esci: non c’è sender specifico
+        # altrimenti: logica per inoltro al sender specifico
+    
+        if message and sender:
+            # costruisci nome come IP:Port
+            name = f"{sender.client.host}:{sender.client.port}"
+            modified_message = {
+                "from": name,
+                "pack": data.pack,
+                "data": message
+            }
+            msg_json = json.dumps(modified_message)
+
+            # se sender è in clientBs → manda a tutti clientAs
+            if any(ws == sender for ws, _ in self.clientBs):
+                for ws, _ in self.clientAs:
+                    try:
+                        await ws.send_text(msg_json)
+                    except Exception as e:
+                        print(f"Failed to send to client A: {e}")
+
+            # se sender è in clientAs → manda a tutti clientBs
+            elif any(ws == sender for ws, _ in self.clientAs):
+                for ws, _ in self.clientBs:
+                    try:
+                        await ws.send_text(msg_json)
+                    except Exception as e:
+                        print(f"Failed to send to client B: {e}")
+
+            data.pack += 1
+
+    
+        if message2 and sender and (message2 == "end" and data.pack2 !=0 or message2 != "end"):
+            name = "server"
+            modified_message = {
+                "from": name,
+                "pack": data.pack2,
+                "data": message2
+            }
+            try:
+                await sender.send_text(json.dumps(modified_message))
+            except Exception as e:
+                print(f"Failed to send to client: {e}")
+            data.pack2 += 1
+
+
+    async def onConnect(self, websocket: WebSocket, path: str, arg=None):
+        client_ip = websocket.client.host
+        client_port = websocket.client.port
+        default_data = ClientData(f"{client_ip}:{client_port}", 0, True)
+        if path == "/websocketA":
+            self.clientAs.append((websocket, default_data))
+        else:
+            self.clientBs.append((websocket, default_data))
+        print(f"Client connected to {path}: {client_ip}")
+
+        # puoi salvare il websocket in una lista se vuoi broadcast
+    async def remove_client(self,websocket: WebSocket, webSocketPath: str):
+        clients = self.clientAs if webSocketPath == "/websocketA" else self.clientBs
+        # trova e rimuove il client
+        for i, (ws, data) in enumerate(clients):
+            if ws == websocket:
+                clients.pop(i)
+                print(f"Client disconnected from {webSocketPath}: {data.username}")
+                break
+
+    async def onDisconnect(self, websocket: WebSocket, path: str, arg=None):
+        print(f"Disconnected: {path}")
+        await self.remove_client(websocket, path)
+
+
+
+    async def onMessage(self, websocket: WebSocket, message: str, path: str, arg=None):
+        # Recupera i dati associati al client
+        data = self.get_data(websocket)
+
+        # Gestione lasting (simulazione di frameInfo->len)
+        if data.lasting == 0:
+            data.lasting = len(message)  # in C++ era frameInfo->len
+        data.lasting -= len(message)
+
+        # Finale o meno
+        data.final = data.lasting <= 0
+
+        print(f"onMessage updating data N:{data.username} end:{data.final} L:{len(message)} to:{data.lasting}")
+
+        # Aggiorna i dati del client
+        self.update_data(websocket, data)
+
+        # Processa il messaggio
+        await self.processWebSocketMessage(message, buffer_size=0, speaker_on=True,
+                                        BUFFER_SIZE=16384, buffer=self.buffer, sender=websocket)
+    
+
+chatHandler = ChatHandler()
+
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return index_html
+@app.get("/clientA.html", response_class=HTMLResponse)
+async def root():
+    return clientA_html
+@app.get("/clientB.html", response_class=HTMLResponse)
+async def root():
+    return clientB_html
+    
+
+@app.get("/websocket_script.js", response_class=HTMLResponse)
+async def root():
+    return Response(content=websocket_script_js, media_type="application/javascript")
+
+
+@app.get("/module.js")
+async def root():
+    return Response(content=module_js, media_type="application/javascript")
+    
+@app.get("/ping")
+async def root():
+    return Response(content="pong", media_type="text/plain")
+
+@app.websocket("/websocketA")
+async def websocket_a(websocket: WebSocket):
+    await websocket.accept()
+    await chatHandler.onConnect(websocket, "/websocketA")
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await chatHandler.onMessage(websocket, data, "/websocketA")
+    except WebSocketDisconnect:
+        await chatHandler.onDisconnect(websocket, "/websocketA")
+
+@app.websocket("/websocketB")
+async def websocket_b(websocket: WebSocket):
+    await websocket.accept()
+    await chatHandler.onConnect(websocket, "/websocketB")
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await chatHandler.onMessage(websocket, data, "/websocketB")
+    except WebSocketDisconnect:
+        await chatHandler.onDisconnect(websocket, "/websocketB")
+
+
+app.mount("/",StaticFiles(directory="server"),name="server")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0",port=80)

@@ -1,0 +1,569 @@
+{
+  "baseUrl": "http://miriam.lightningreen.keenetic.pro",
+  "Radio": [ "FT-991A", "IC-718" ],
+  "SerialSpeed": [ "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200" ],
+  "stopBits": [ "1", "2" ],
+  "parity": [ "none", "even", "odd" ],
+  "dataBits": [ "7", "8" ],
+  "audioout": [ "none" ],
+  "audioin": [ "none" ],
+  "radio": {
+    "FT-991A": {
+      "SerialSpeed": "4800",
+      "stopBits": "1",
+      "parity": "none",
+      "dataBits": "8",
+      "commands": {
+        "IF": {
+          "setreqsimp": "",
+          "setformat": [],
+          "readreqsimp": "IF",
+          "readformat": [],
+          "answerformat": [
+            {
+              "param": "P1",
+              "length": 3
+            },
+            {
+              "param": "P2",
+              "length": 9
+            },
+            {
+              "param": "P3",
+              "length": 5
+            },
+            {
+              "param": "P4",
+              "length": 1
+            },
+            {
+              "param": "P5",
+              "length": 1
+            },
+            {
+              "param": "P6",
+              "length": 1
+            },
+            {
+              "param": "P7",
+              "length": 1
+            },
+            {
+              "param": "P8",
+              "length": 1
+            },
+            {
+              "param": "P9",
+              "length": 2
+            },
+            {
+              "param": "P10",
+              "length": 1
+            }
+          ],
+          "P1": "VFOA Memory channel",
+          "P2": "VFOA frequency",
+          "P3": "VFOA Clarifier offset",
+          "P4": "VFOA RX CLAR",
+          "P5": "VFOA TX CLAR",
+          "P6": "VFOA MODE",
+          "P7": "VFOA STATE",
+          "P8": "VFOA ENC mode",
+          "P9": "00fix",
+          "P10": "VFOA shiftOP"
+        },
+        "OI": {
+          "setreqsimp": "",
+          "setformat": [],
+          "readreqsimp": "OI",
+          "readformat": [],
+          "answerformat": [
+            {
+              "param": "P1",
+              "length": 3
+            },
+            {
+              "param": "P2",
+              "length": 9
+            },
+            {
+              "param": "P3",
+              "length": 5
+            },
+            {
+              "param": "P4",
+              "length": 1
+            },
+            {
+              "param": "P5",
+              "length": 1
+            },
+            {
+              "param": "P6",
+              "length": 1
+            },
+            {
+              "param": "P7",
+              "length": 1
+            },
+            {
+              "param": "P8",
+              "length": 1
+            },
+            {
+              "param": "P9",
+              "length": 2
+            },
+            {
+              "param": "P10",
+              "length": 1
+            }
+          ],
+          "P1": "VFOB Memory channel",
+          "P2": "VFOB frequency",
+          "P3": "VFOB Clarifier offset",
+          "P4": "VFOB RX CLAR",
+          "P5": "VFOB TX CLAR",
+          "P6": "VFOB MODE",
+          "P7": "VFOB STATE",
+          "P8": "VFOB ENC mode",
+          "P9": "00fix",
+          "P10": "VFOB shiftOP"
+        },
+        "GT": {
+          "setreqsimp": "GT00",
+          "setformat": [
+            {
+              "param": "P1",
+              "length": 1
+            },
+            {
+              "param": "P2",
+              "length": 1
+            }
+          ],
+          "readreqsimp": "GT0",
+          "readformat": [
+            {
+              "param": "P1",
+              "length": 1
+            }
+          ],
+          "answersimp": "GT00",
+          "answerformat": [
+            {
+              "param": "P1",
+              "length": 1
+            },
+            {
+              "param": "P3",
+              "length": 1
+            }
+          ],
+          "P1": "0fix",
+          "P2": "AGC",
+          "P3": "AGC"
+        },
+        "BS": {
+          "setreqsimp": "BS00",
+          "setformat": [
+            {
+              "param": "P1",
+              "length": 2
+            }
+          ],
+          "readreqsimp": "",
+          "readformat": [],
+          "answersimp": "",
+          "answerformat": [],
+          "request": [
+            {
+              "condition": "VFOA frequency",
+              "range": [ 30000, 1730000 ],
+              "Presult": "P1",
+              "result": "MV"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 1730000, 2030000 ],
+              "Presult": "P1",
+              "result": "1.8 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 2030000, 4030000 ],
+              "Presult": "P1",
+              "result": "3.5 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 4030000, 8030000 ],
+              "Presult": "P1",
+              "result": "7 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 8030000, 12030000 ],
+              "Presult": "P1",
+              "result": "10 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 12030000, 16030000 ],
+              "Presult": "P1",
+              "result": "14 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 16030000, 20030000 ],
+              "Presult": "P1",
+              "result": "18 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 20030000, 22030000 ],
+              "Presult": "P1",
+              "result": "21 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 22030000, 26030000 ],
+              "Presult": "P1",
+              "result": "24.5 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 26030000, 30030000 ],
+              "Presult": "P1",
+              "result": "28 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 30030000, 80030000 ],
+              "Presult": "P1",
+              "result": "50 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 80030000, 130030000 ],
+              "Presult": "P1",
+              "result": "AIR"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 130030000, 289030000 ],
+              "Presult": "P1",
+              "result": "144 MHz"
+            },
+            {
+              "condition": "VFOA frequency",
+              "range": [ 289030000, 470000000 ],
+              "Presult": "P1",
+              "result": "430 MHz"
+            }
+          ],
+          "P1": "BAND"
+        },
+        "MD": {
+          "setreqsimp": "MD00",
+          "setformat": [
+            {
+              "param": "P1",
+              "length": 1
+            },
+            {
+              "param": "P2",
+              "length": 1
+            }
+          ],
+          "readreqsimp": "MD0",
+          "readformat": [],
+          "answersimp": "MD00",
+          "answerformat": "setreqsimp",
+          "P1": "0fix",
+          "P2": "VFOA MODE"
+        },
+        "RM": {
+          "setreqsimp": "",
+          "setformat": [],
+          "readreqsimp": "RM0",
+          "readformat": [
+            {
+              "param": "P1",
+              "length": 1
+            }
+          ],
+          "answersimp": "RM0000",
+          "answerformat": [
+            {
+              "param": "P1",
+              "length": 1
+            },
+            {
+              "param": "P2",
+              "length": 3
+            }
+          ],
+          "P1": "METER type",
+          "P2": "METER value"
+        },
+        "SQ": {
+          "setreqsimp": "SQ0000",
+          "setformat": [
+            {
+              "param": "P1",
+              "length": 1
+            },
+            {
+              "param": "P2",
+              "length": 3
+            }
+          ],
+          "readreqsimp": "SQ0",
+          "readformat": [
+            {
+              "param": "P1",
+              "length": 1
+            }
+          ],
+          "answersimp": "SQ0000",
+          "answerformat": [
+            {
+              "param": "P1",
+              "length": 1
+            },
+            {
+              "param": "P2",
+              "length": 3
+            }
+          ],
+          "P1": "0fix",
+          "P2": "SQL"
+        },
+        "SC": {
+          "setreqsimp": "SC0",
+          "setformat": [
+            {
+              "param": "P1",
+              "length": 1
+            }
+          ],
+          "readreqsimp": "SC",
+          "readformat": [],
+          "answersimp": "SC0",
+          "answerformat": [
+            {
+              "param": "P1",
+              "length": 1
+            }
+          ],
+          "P1": "SCAN"
+        },
+        "FT": {
+          "setreqsimp": "FT2",
+          "setformat": [
+            {
+              "param": "P1",
+              "length": 1
+            }
+
+          ],
+          "readreqsimp": "FT",
+          "readformat": [],
+          "answersimp": "FT0",
+          "answerformat": [
+            {
+              "param": "P2",
+              "length": 1
+            }
+          ],
+          "P1": "BAND TX",
+          "P2": "BAND TX"
+        },
+        "FA": {
+          "beforeset": "BS",
+          "setreqsimp": "FA145450000",
+          "setformat": [
+            {
+              "param": "P1",
+              "length": 9
+            }
+          ],
+          "readreqsimp": "FA",
+          "readformat": [],
+          "answersimp": "FA145450000",
+          "answerformat": "setformat",
+          "P1": "VFOA frequency"
+        },
+        "FB": {
+          "setreqsimp": "FB145450000",
+          "setformat": [
+            {
+              "param": "P1",
+              "length": 9
+            }
+          ],
+          "readreqsimp": "FB",
+          "readformat": [],
+          "answersimp": "FB145450000",
+          "answerformat": "setformat",
+          "P1": "VFOB frequency"
+        },
+        "BU": {
+          "setreqsimp": "BU0",
+          "setformat": [
+            {
+              "param": "P1",
+              "length": 1
+            }
+          ],
+          "readreqsimp": "",
+          "readformat": [],
+          "answersimp": "",
+          "answerformat": [],
+          "ausiliar": [
+            {
+              "action": "+",
+              "Nlist": "BAND",
+              "list": [ "MW", "1.8 MHz", "3.5 MHz", "7 MHz", "10 MHz", "14 MHz", "18 MHz", "21 MHz", "24.5 MHz", "28 MHz", "50 MHz", "AIR", "144 MHz", "430 MHz" ],
+              "incision": "old"
+            }
+          ],
+          "P1": "0fix"
+        },
+        "BD": {
+          "setreqsimp": "BD0",
+          "setformat": [
+            {
+              "param": "P1",
+              "length": 1
+            }
+          ],
+          "readreqsimp": "",
+          "readformat": [],
+          "answersimp": "",
+          "answerformat": [],
+          "ausiliar": [
+            {
+              "action": "-",
+              "Nlist": "BAND",
+              "list": [ "MW", "1.8 MHz", "3.5 MHz", "7 MHz", "10 MHz", "14 MHz", "18 MHz", "21 MHz", "24.5 MHz", "28 MHz", "50 MHz", "AIR", "144 MHz", "430 MHz" ],
+              "incision": "old"
+            }
+          ],
+          "P1": "0fix"
+        }
+      },
+      "information": {
+        "SQL": {
+          "format": [ 0, 100 ]
+        },
+        "METER value": {
+          "format": [ 0, 255 ]
+        },
+        "VFOA Memory channel": {
+          "format": [ 0, 117 ]
+        },
+        "VFOB Memory channel": {
+          "format": [ 0, 117 ]
+        },
+        "VFOA frequency": {
+          "format": [ 30000, 470000000 ]
+        },
+        "VFOB frequency": {
+          "format": [ 30000, 470000000 ]
+        },
+        "VFOA Clarifier offset": {
+          "format": [ -9999, 9999 ]
+        },
+        "VFOB Clarifier offset": {
+          "format": [ -9999, 9999 ]
+        },
+        "BAND TX": {
+          "setformat": [ "2", "3" ],
+          "ansformat": [ "0", "1" ],
+          "decode": [ "VFOA", "VFOB" ]
+        },
+        "RX CLAR": {
+          "format": [ "0", "1" ],
+          "decode": [ "false", "true" ]
+        },
+        "VFOA RX CLAR": {
+          "format": [ "0", "1" ],
+          "decode": [ "false", "true" ]
+        },
+        "VFOB TX CLAR": {
+          "format": [ "0", "1" ],
+          "decode": [ "false", "true" ]
+        },
+        "VFOA MODE": {
+          "format": [ "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E" ],
+          "decode": [ "", "LSB", "USB", "CW", "FM", "AM", "RTTY-LSB", "CW-R", "DATA-LSB", "RTTY-USB", "DATA-FM", "FM-N", "DATA-USB", "AM-N", "C4FM" ]
+        },
+        "VFOB MODE": {
+          "format": [ "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E" ],
+          "decode": [ "", "LSB", "USB", "CW", "FM", "AM", "RTTY-LSB", "CW-R", "DATA-LSB", "RTTY-USB", "DATA-FM", "FM-N", "DATA-USB", "AM-N", "C4FM" ]
+        },
+        "BAND": {
+          "format": [ "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16" ],
+          "decode": [ "1.8 MHz", "3.5 MHz", "-", "7 MHz", "10 MHz", "14 MHz", "18 MHz", "21 MHz", "24.5 MHz", "28 MHz", "50 MHz", "GEN", "MW", "-", "AIR", "144 MHz", "430 MHz" ]
+        },
+        "VFOA STATE": {
+          "format": [ "0", "1", "2", "3", "4", "5", "6" ],
+          "decode": [ "VFO", "Memory", "Memory Tune", "Quick Memory Bank (QMB)", "QMB-MT", "PMS", "HOME" ]
+        },
+        "VFOB STATE": {
+          "format": [ "0", "1", "2", "3", "4", "5", "6" ],
+          "decode": [ "VFO", "Memory", "Memory Tune", "Quick Memory Bank (QMB)", "QMB-MT", "PMS", "HOME" ]
+        },
+        "VFOA ENC mode": {
+          "format": [ "0", "1", "2", "3", "4" ],
+          "decode": [ "CTCSS OFF", "CTCSS ENC/DEC", "CTCSS ENC", "DCS ENC/DEC", "DCS ENC" ]
+        },
+        "VFOB ENC mode": {
+          "format": [ "0", "1", "2", "3", "4" ],
+          "decode": [ "CTCSS OFF", "CTCSS ENC/DEC", "CTCSS ENC", "DCS ENC/DEC", "DCS ENC" ]
+        },
+        "shiftOP": {
+          "format": [ "0", "1", "2" ],
+          "decode": [ "Simplex", "Plus Shift", "Minus Shift" ]
+        },
+        "VFOA shiftOP": {
+          "format": [ "0", "1", "2" ],
+          "decode": [ "Simplex", "Plus Shift", "Minus Shift" ]
+        },
+        "SCAN": {
+          "format": [ "0", "1", "2" ],
+          "decode": [ "OFF", "ON UP", "ON DOWN" ]
+        },
+        "VFOB AGCset": {
+          "format": [ "0", "1", "2", "3", "4" ],
+          "decode": [ "OFF", "FAST", "MID", "SLOW", "AUTO" ]
+        },
+        "METER type": {
+          "format": [ "0", "1", "2", "3", "4", "5", "6", "7", "8" ],
+          "decode": [ "front panel METER", "S METER", "front panel METER 2", "COMP", "ALC", "PO", "SVR", "ID", "VDD" ]
+        },
+        "AGC": {
+          "setformat": [ "0", "1", "2", "3", "4" ],
+          "ansformat": [ "0", "1", "2", "3", "4", "5", "6" ],
+          "setdecode": [ "OFF", "FAST", "MID", "SLOW", "AUTO" ],
+          "ansdecode": [ "OFF", "FAST", "MID", "SLOW", "AUTO-FAST", "AUTO-MID", "AUTO-SLOW" ]
+        },
+        "0fix": { "preset": "0" },
+        "00fix": { "preset": "00" }
+
+      },
+      "commandlist": {
+        "BAND UP": "BU",
+        "BAND DOWN": "BD"
+      }
+    },
+    "IC-718": {
+      "SerialSpeed": "9600",
+      "stopBits": "1",
+      "parity": "none",
+      "dataBits": "8"
+    }
+  }
+}

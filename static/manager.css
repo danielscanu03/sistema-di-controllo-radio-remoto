@@ -1,0 +1,132 @@
+/* Base Styles */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f6f8fa;
+      color: #333;
+    }
+    /* Outer container wrapping both sections */
+    #outerContainer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2vw;
+      justify-content: center;
+      padding: 2vh 2vw;
+    }
+    /* Each container will try to take up about 45% of the width on wide screens */
+    .container {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 2vh 2vw;
+      box-sizing: border-box;
+      flex: 1 1 45%;
+      margin-bottom: 2vh;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      font-size: 4vw;
+      margin-bottom: 4vh;
+    }
+    h2 {
+      color: #34495e;
+      font-size: 3vw;
+      padding-bottom: 1vh;
+      border-bottom: 2px solid #ecf0f1;
+      margin-top: 0;
+    }
+    /* Form Styling */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5vh;
+      margin-top: 2vh;
+    }
+    input[type="file"] {
+      padding: 1vh;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fafafa;
+      font-size: 2vw;
+    }
+    input[type="submit"] {
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      padding: 1.5vh 2vw;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 2.5vw;
+      transition: background-color 0.3s ease;
+    }
+    input[type="submit"]:hover {
+      background-color: #2980b9;
+    }
+    a {
+      color: #3498db;
+      text-decoration: none;
+      font-size: 2.5vw;
+      display: inline-block;
+      margin-top: 10px;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    footer {
+      text-align: center;
+      font-size: 1.5vw;
+      color: #aaa;
+      margin-top: 4vh;
+    }
+    /* Chart Container */
+    .chart-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4vh;
+      margin-bottom: 4vh;
+    }
+    /* Explicit dimensions for chart canvases */
+    canvas.chart-canvas {
+      width: 300px !important;
+      height: 300px !important;
+      background-color: #fff;
+      border: 1px solid #eee;
+      border-radius: 8px;
+    }
+    #refreshCharts {
+      background-color: #27ae60;
+      color: #fff;
+      border: none;
+      padding: 1vh 2vw;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 2.5vw;
+      transition: background-color 0.3s ease;
+      margin-top: 1vh;
+    }
+    #refreshCharts:hover {
+      background-color: #1e8449;
+    }
+    #pagelist {
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      padding: 1vh 2vw;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 2.5vw;
+      transition: background-color 0.3s ease;
+      margin-top: 1vh;
+    }
+    #pagelist:hover {
+      background-color: #2980b9;
+    }
+    /* When the screen is narrow, let each container take full width */
+    @media (max-width: 800px) {
+      .container {
+        flex: 1 1 100%;
+      }
+    }
