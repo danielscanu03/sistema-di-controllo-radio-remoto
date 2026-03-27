@@ -279,7 +279,7 @@ if(document.getElementById('radioinfo'))document.getElementById('radioinfo').add
 
 
 });
-document.getElementById('BANDUP').addEventListener('click', () => {
+document.getElementById('BAND UP').addEventListener('click', () => {
   const serverpingElement = document.getElementById('radioinfo');
   let jsri = JSON.parse(serverpingElement.value);
   
@@ -304,7 +304,7 @@ document.getElementById('BANDUP').addEventListener('click', () => {
   });
 });
 
-document.getElementById('BANDDOWN').addEventListener('click', () => {
+document.getElementById('BAND DOWN').addEventListener('click', () => {
   const serverpingElement = document.getElementById('radioinfo');
   let jsri = JSON.parse(serverpingElement.value);
   

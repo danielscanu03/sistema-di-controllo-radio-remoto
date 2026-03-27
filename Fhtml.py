@@ -170,8 +170,8 @@ clientB_html = """
       <button style="top: 18%; left: 1%; position: absolute;">A=B</button>
 
       <!-- Right Side Buttons -->
-      <button id="BANDUP" style="top: 2%; left: 81%; position: absolute;">Up</button>
-      <button id="BANDDOWN" style="top: 18%; left: 81%; position: absolute;">Down</button>
+      <button id="BAND UP" style="top: 2%; left: 81%; position: absolute;">Up</button>
+      <button id="BAND DOWN" style="top: 18%; left: 81%; position: absolute;">Down</button>
 
       <!-- Bottom Button -->
       <button id="FM" style="top: 7%; left: 33%; position: absolute;">FM</button>

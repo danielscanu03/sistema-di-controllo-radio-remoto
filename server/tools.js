@@ -1,0 +1,617 @@
+
+export async function requestSigninCode(timeout = 5000) {
+    // 1) Se esiste già in cache, lo ritorno subito
+    const cached = localStorage.getItem("signin_code");
+	let scached = sessionStorage.getItem("signin_code");
+	
+	if (!scached) {
+		sessionStorage.setItem("session_code", generateSessionCode());
+		scached = sessionStorage.getItem("session_code");
+	}
+	
+    if (cached) return `${cached}-${scached}`;
+
+
+    // 2) Altrimenti lo chiedo al server
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const res = await fetch("/signin", { signal: controller.signal });
+        if (!res.ok) throw new Error("Errore HTTP: " + res.status);
+
+        const data = await res.json();
+
+        // 3) Salvo in cache
+        localStorage.setItem("signin_code", data.code);
+
+        return `${data.code}-${scached}`;
+
+    } catch (err) {
+        console.error("Errore durante la richiesta del codice:", err);
+        return null;
+
+    } finally {
+        clearTimeout(timer);
+    }
+}
+function generateSessionCode(length = 4) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let out = "";
+    for (let i = 0; i < length; i++) {
+        out += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return out;
+}
+
+export function getSigninCode(){
+	const cached = localStorage.getItem("signin_code");
+	const scached = sessionStorage.getItem("session_code");
+    return `${cached}-${scached}`;
+}
+
+
+function jsonfind(data, from) {
+    let key = null;
+    for (let i = 0; i < data.Nconn; i++) {
+      if (data[`from${i}`] !== undefined){
+      if (data[`from${i}`].from === from) {
+        key = `from${i}`;
+        break;
+      } else if (data[`from${i}`].from === undefined && key === null) {
+        key = `from${i}`;
+      }} else {
+        key = `from${i}`;
+      }
+    }
+    if (key === null) {
+      key = `from${data.Nconn}`;
+      data.Nconn++; // Increment connection counter for new key
+    }
+    return key; // Return the key associated with the 'from' value
+}
+
+
+class messsageHandle{
+	constructor(link) {
+		this.incomingData = JSON.parse("{\"Nconn\":0}");
+		this.completedKeys = [];
+    }
+	add(pack){
+		const key = jsonfind(this.incomingData, pack.from);  // Use jsonfind to generate or locate the key
+		if (!this.incomingData[key]) {
+		  // Initialize the structure if this is the first packet from this source
+		  this.incomingData[key] = { completed: false, paks: 0, from: pack.from };
+		}
+		if (pack.data === "end") {
+		  this.incomingData[key].paks = pack.pack;
+
+		  // Simplified check for all packets
+		  const allPacketsReceived = Array.from({ length: this.incomingData[key].paks })
+									  .every((_, i) => this.incomingData[key][`paket${i}`]);
+		  if (allPacketsReceived) {
+			this.incomingData[key].completed = true;
+			this.completedKeys.push(key);
+		  }
+		} else {
+		  this.incomingData[key][`paket${pack.pack}`] = pack.data;
+		  if (this.incomingData[key].paks > 0) {
+			const allPacketsReceived = Array.from({ length: this.incomingData[key].paks })
+										.every((_, i) => this.incomingData[key][`paket${i}`]);
+			if (allPacketsReceived) {
+			  this.incomingData[key].completed = true;
+			  this.completedKeys.push(key);
+			}
+		  }
+		}
+	}
+	
+	getCompleted(){
+		if(this.completedKeys.length==0)return null;
+		let compkey = this.completedKeys[0];
+		this.completedKeys.pop(0);
+		let ret = this.incomingData[compkey]
+		delete this.incomingData[compkey];
+		return ret;
+	}
+}
+
+
+
+class websoketR extends WebSocket{
+	
+	constructor(link) {
+        super(link);
+
+		
+		this.msghandle= new messsageHandle();
+		console.log('WebSocket to:',link);
+		this.onopen = this.handleOpen.bind(this);
+        this.onmessage = this.handleMessage.bind(this);
+        this.onerror = this.handleError.bind(this);
+        this.onclose = this.handleClose.bind(this);
+    }
+	
+  handleOpen(){
+    console.log('WebSocket connected');
+  };
+
+  handleMessage(event){
+    const data = JSON.parse(event.data);            // Parse the incoming JSON
+    this.msghandle.add(data);
+	
+	let completed = this.msghandle.getCompleted();
+	if(!completed)return;
+	try{
+		const allPacketsData = Array.from({ length: completed.paks }).map((_, i) => completed[`paket${i}`]).filter(data => data).join("");
+        //console.log("allincomingDatarow:",allPacketsData);
+        const alldata = JSON.parse(allPacketsData);
+		
+		if(alldata.type === 'pong'){
+			const elapsed = Date.now() - alldata.time;
+			console.log('Pong received from '+completed.from+', round-trip time: ' + elapsed + ' ms');
+			this.onlinechek?.(completed.from,elapsed);
+		} else if (alldata.type === 'ping') {
+          // Respond with a pong message
+		  console.log(completed);
+          const pongData = {
+            type: 'pong',
+            time: alldata.time,
+            device: navigator.userAgent,
+            payload: alldata.payload
+          };
+          this.send(JSON.stringify(pongData));
+          this.onlinechek?.(completed.from,null);
+        } else if (alldata.type === 'message') {
+			this.msghandler?.(alldata);
+		} else if (alldata.type === 'command') {
+			this.commandhandler?.(alldata);
+		} else if (alldata.type === 'update') {
+			this.updatehandler?.(alldata);
+		} else if (alldata.type === 'setEvent') {
+			this.seteventhandler?.(alldata);
+		} else if (alldata.type === 'audio') {
+			this.audiohandler?.(alldata);
+		}
+	} catch (e) {
+        console.error("SMS err:", e);
+        // Incomplete JSON, keep accumulating data
+    }
+  }
+
+  handleError(error){
+	if(this.handlererror)this.handlererror?.(error);
+    else console.error('WebSocket error:', error);
+  }
+
+  handleClose(event){
+    if(this.handlerclose)this.handlerclose?.(event);
+    else console.log('WebSocket closed:', event);
+	clearInterval(this.ping);
+  }
+}
+
+
+
+class websoketA extends websoketR{
+	constructor() {
+        super('wss://' + window.location.hostname + '/websocketA?login='+getSigninCode());
+	}
+}
+class websoketB extends websoketR{
+	constructor() {
+        super('wss://' + window.location.hostname + '/websocketB?login='+getSigninCode());
+		this.ping = setInterval(() => {
+			this.send(JSON.stringify({
+				type: 'ping',
+				time: Date.now(),
+				device: navigator.userAgent,
+				payload: "AAAAAAAAAAAAAAAAAAAAAAAAAA"
+			}));
+		}, 2000);
+	}
+}
+
+
+class Interpreter{
+	constructor(Json,radio) {
+		this.json=Json.radio[radio];
+	}
+	
+	check(buffer,reset){
+		const awaitStart = toIntArray(this.json["awaitstart"]);
+		const awaitEnd   = toIntArray(this.json["awaitend"]);
+		
+		if (awaitStart) {
+			if(awaitStart.length>buffer.length)return;
+			if (!arrayStartsWith(buffer, awaitStart)) {reset();return;}
+		}
+		if (awaitEnd) {
+			if(awaitEnd.length+awaitStart?awaitStart.length:0>buffer.length)return;
+			if (!arrayEndsWith(buffer, awaitEnd)) {return;}
+		}
+		
+		this.newqueue?.(this.traslate("answer",buffer));
+		reset();
+	}
+	
+	traslate(type,buffer){
+		let catchstruct = this.json["struct"];
+		let commands = this.json["commands"];
+		let commandlist = this.json["commandlist"];
+		let information = this.json["information"];
+		let ret = null;
+		if(Array.isArray(buffer)){
+			let catchstructs = this.findStruct(buffer,commands,information).filter(c => c.type==type);
+			if(catchstructs?.length==1){
+				ret=catchstructs[0];
+				ret["buff"]=buffer;
+				ret["buffstr"]=buffer.map(car => String.fromCharCode(car)).join("");
+			}
+		}else if(buffer.command&&!buffer.data){
+			let command = null;
+			let formd = null;
+			let data = null;
+			if(Array.isArray(commandlist[buffer.command])){
+				
+			}else{
+				command=commands[commandlist[buffer.command]];
+			}
+			
+			let format = command[type=="set"?"setformat":type=="read"?"readformat":type=="answer"?"answerformat":"null"];
+			
+			//console.log(commands[]);
+			
+			[formd,data] = this.getFixed(format,command,information);
+			
+			let voids = formd.filter(f => data[f.param]).length;
+			
+			if(voids==0)ret=formd.map(f=>data[f]).flat();
+			
+		}else if(buffer.update){
+			
+			
+			let utilityformat = this.findStruct(buffer.update,commands,information).filter(c => c.type==type);
+			
+			utilityformat=utilityformat.map(uty => {
+				let fx = this.getFixed(uty.format,uty.command,information);
+				let nnstatic = fx[0].filter(ff => fx[fx[0]]&&!buffer.update[ff]);
+				let updated = {};
+				fx[0].filter(ff => !fx[fx[0]]&&buffer.update[ff]).forEach(up => {
+					updated[up]=toIntArray(this.conversionbyteformat(up,buffer.update[up],information[up],uty.format[fx[0].indexOf(up)].length));
+				});
+				return {fixed:fx[1],format:uty.format,reformat:fx[0],entries:uty.entries,nnstatic,updated};
+			});
+			
+			if(utilityformat.length!=0&&utilityformat[0].nnstatic.length==0){
+				
+				let infos = {...utilityformat[0].fixed,...utilityformat[0].updated};
+				let comm = utilityformat[0].reformat.map(re => infos[re]).flat();
+				if(comm.indexOf(null)!=-1||comm.indexOf(undefined)!=-1)console.log(utilityformat);
+				return comm;
+				
+				
+			}
+			
+			console.log(utilityformat);
+			
+		}
+		
+		return ret;
+	}
+	
+	
+	conversionbyteformat(key,value,information,lenght){
+		
+		if(information.type=="strint"){
+			
+			value = Math.min(Math.max(value, information.format[0]), information.format[1]);
+			
+			
+			return value.toString().padStart(lenght, "0");
+			
+		}else if(information.decode&&information.format){
+			
+			return information.format[information.decode.indexOf(value)];
+		}
+		
+		console.log(key,value,information,lenght);
+		
+	}
+	
+	getFixed(format,command,information){
+		let ret = {};
+		let retF = [];
+		let reformat = format.map(parm =>{return {code:parm.param,format:command[parm.param]?command[parm.param]:parm.param,reformat:command[parm.param]?information[command[parm.param]]:information[parm.param]}}).map(parm => {
+			retF = [...retF,parm.format];
+			let val = null;
+			if(parm.reformat.preset)val = toIntArray(parm.reformat.preset);
+			if(parm.reformat.format=="command")val = toIntArray(command["cmd"]);
+			//return {...parm,val:val};
+			if(val)return {[parm.format]:val};
+		}).filter(parm => parm).forEach(parm => {ret={...ret,...parm};});
+		
+		//console.log(format,reformat);
+		return [retF,ret];
+	}
+	findStruct(buffer,commandlist,information){
+		let ret = [];
+		
+		Object.entries(commandlist).forEach(([key,cmd],index) => {
+			if(Array.isArray(buffer)){
+				let set = null;
+				try{set=this.checkstruct(buffer,cmd.setformat);}catch(err){}
+				let read = null;
+				try{read=this.checkstruct(buffer,cmd.readformat);}catch(err){}
+				let answer = null;
+				try{answer=this.checkstruct(buffer,cmd.answerformat);}catch(err){}
+				if(set)set=validateformat("set",set,commandlist[key],information);
+				if(read)read=validateformat("read",read,commandlist[key],information);
+				if(answer)answer=validateformat("answer",answer,commandlist[key],information);
+				
+				//if(set||read||answer)console.log("cmd",key," set:",set?true:false," read:",read?true:false," answer:",answer?true:false);
+				
+				if(set)ret.push({type:"set",format:set});
+				if(read)ret.push({type:"read",format:read});
+				if(answer)ret.push({type:"answer",format:answer});
+			}else{
+				
+				let set = null;
+				try{set=cmd.setformat.map(cc => cmd[cc.param]?cmd[cc.param]:cc.param)}catch(err){}
+				let nset = Object.entries(buffer).filter(([key,cmd],index) => set?.includes(key)).length;
+				if(nset!=0)ret.push({type:"set",format:cmd.setformat,entries:nset,command:cmd});
+				let read = null;
+				try{read=cmd.readformat.map(cc => cmd[cc.param]?cmd[cc.param]:cc.param)}catch(err){}
+				let nread = Object.entries(buffer).filter(([key,cmd],index) => read?.includes(key)).length;
+				if(nread!=0)ret.push({type:"read",format:cmd.readformat,entries:nread,command:cmd});
+				let answer = null;
+				try{answer=cmd.answerformat.map(cc => cmd[cc.param]?cmd[cc.param]:cc.param)}catch(err){}
+				let nanswer = Object.entries(buffer).filter(([key,cmd],index) => answer?.includes(key)).length;
+				if(nanswer!=0)ret.push({type:"answer",format:cmd.answerformat,entries:nanswer,command:cmd});
+				
+			}
+		});
+		return ret;
+	}
+	
+	checkstruct(buffer,struct){
+		let ret = {};
+		let structlen = 0;
+		let wild = false;
+		struct.forEach(el => {
+			if(el.length!="...")structlen+=el.length;else wild=true;
+		});
+		
+		if(!wild&&structlen!=buffer.length||wild&&structlen>buffer.length)return null;
+		let unkown = {start:0,end:buffer.length}
+		let indexbuff=0;
+		let index = 0;
+		while(true){
+			if(index>=struct.length||struct[index].length=="..."){unkown.start=indexbuff;break;}
+			ret[struct[index].param]=buffer.slice(indexbuff,indexbuff+struct[index].length);
+			
+			indexbuff+=struct[index].length;
+			index++;
+		}
+		index = struct.length-1;
+		indexbuff=buffer.length-1;
+		while(true){
+			if(index<0||struct[index].length=="..."){unkown.end=indexbuff;break;}
+			ret[struct[index].param]=buffer.slice(indexbuff-struct[index].length+1,indexbuff+1);
+			
+			indexbuff-=struct[index].length;
+			index--;
+		}
+		
+		let wildformat = struct.map((el,index) => {return {param:el.param,lenght:el.lenght,index}}).filter(el => el.param=="...");
+		
+		if(unkown.start<unkown.end)ret[wildformat.length==1?wildformat[0].param:"???"]=buffer.slice(unkown.start,unkown.end);
+		
+		return ret;
+	}
+	
+}
+function arraysEqual(a, b) {
+    if (a === b) return true;                // stesso riferimento
+    if (!a || !b) return false;              // uno dei due è null/undefined
+    if (a.length !== b.length) return false; // lunghezza diversa
+
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;     // confronto elemento per elemento
+    }
+    return true;
+}
+function validateformat(type,formatted,commandlist,information){
+	let ret = {}
+	Object.entries(formatted).forEach(([key, list],index) => {
+		let infkey = commandlist[key];
+		if(!ret)return null;
+		if(infkey&&information[infkey]){
+			if(information[infkey]?.format=="command"){
+				if(!arraysEqual(list,toIntArray(commandlist["cmd"])))ret = null;
+			}else if(information[infkey]?.preset){
+				if(!arraysEqual(list,toIntArray(information[infkey]?.preset)))ret = null;
+			}else if(information[infkey]?.decode&&information[infkey]?.format){
+				let forms = information[infkey].format.map((f,index) => {return{index:index,val:toIntArray(f)}}).filter(f => arraysEqual(f.val,list));
+				if(forms.length!=0)ret[infkey?infkey:key]=information[infkey].decode[forms[0].index];else ret=null;
+			}else if(information[infkey]?.setformat&&type=="set"){
+				let forms = information[infkey].setformat.map((f,index) => {return{index:index,val:toIntArray(f)}}).filter(f => arraysEqual(f.val,list));
+				if(forms.length!=0)ret[infkey?infkey:key]=(information[infkey].setdecode?information[infkey].setdecode:information[infkey].decode)[forms[0].index];else ret=null;
+			}else if(information[infkey]?.ansformat&&type=="answer"){
+				let forms = information[infkey].ansformat.map((f,index) => {return{index:index,val:toIntArray(f)}}).filter(f => arraysEqual(f.val,list));
+				if(forms.length!=0)ret[infkey?infkey:key]=(information[infkey].ansdecode?information[infkey].ansdecode:information[infkey].decode)[forms[0].index];else ret=null;
+			}else if(information[infkey]?.redformat&&type=="read"){
+				let forms = information[infkey].redformat.map((f,index) => {return{index:index,val:toIntArray(f)}}).filter(f => arraysEqual(f.val,list));
+				if(forms.length!=0)ret[infkey?infkey:key]=(information[infkey].reddecode?information[infkey].reddecode:information[infkey].decode)[forms[0].index];else ret=null;
+			}else if(information[infkey]?.type=="strint"){
+				let varb = list.map(car => String.fromCharCode(car)).join("");
+				if (varb >= information[infkey].format[0] && varb <= information[infkey].format[1])ret[infkey?infkey:key]=Number(varb);else ret=null;
+			}else ret[infkey?infkey:key]=list;
+		}
+	});
+	return ret;
+}
+
+
+class COM{
+	constructor(Port,Options) {
+        this.port=Port;
+		this.options = Options;
+		this.optionsport = { baudRate: [Options.SerialSpeed] , stopBits: [Options.stopBits] , parity: [Options.parity] , dataBits: [Options.dataBits]};
+		this.buff = [];
+        this.queue = [];        // QUEUE DEI MESSAGGI
+        this.isWriting = false; // FLAG
+        this.interval = null;   // TIMER
+        this.interval2 = null;   // TIMER2
+		this.lock=true;
+	}
+	async open(){
+		await this.port.open(this.optionsport);
+		this.port.readable.pipeTo(new WritableStream({write: (bytes) => {
+			const byte = getBytes(bytes);
+			for (const biit of byte) {
+				this.buff.push(biit);
+			}
+			this.interpreter?.(this.buff);
+		}}));
+		// Write the message to the serial port
+		//await writer.write(new TextEncoder().encode("IF;OI;FT;RM0;SC;"));
+		this.interval = setInterval(() => this._processQueue(), this.options.awaitms);
+		this.interval2 = setInterval(() => this._processR(), this.options.awaitms*20);
+	}
+	
+	send(pack){
+		if(pack.type=="direct"){
+			this.write(toIntArray(pack.command));
+		}else if(pack.type=="pack"){
+			this.write(this.traslate?.(pack));
+		}
+	}
+	
+	drain(bytes){
+		this.buff=this.buff.slice(bytes.length);
+	}
+	write(data) {
+        if (!data) return;
+        this.queue.push(data);
+    }
+	async _processR() {
+		if(this.options.loopreq)this.write(toIntArray(this.options.loopreq));
+	}
+	async _processQueue() {
+        if (this.isWriting) return;      // già in scrittura
+        if (this.queue.length === 0){
+			if (!this.lock) {
+				await this.writer.releaseLock();
+				this.lock=true;
+			}
+			return; // niente da inviare
+		}else if(this.lock){
+			this.writer = this.port.writable.getWriter();
+			this.lock=false;
+		}
+		
+        this.isWriting = true;
+
+        const msg = this.queue.shift();  // prendi il primo messaggio
+
+        try {
+            await this.writer.write(new Uint8Array(msg));
+        } catch (e) {
+            console.error("Errore scrittura seriale:", e);
+        }
+
+        this.isWriting = false;
+    }
+	async close() {
+        clearInterval(this.interval);
+        this.interval = null;
+		clearInterval(this.interval2);
+        this.interval2 = null;
+
+        if (this.writer) {
+            await this.writer.close();
+            this.writer = null;
+        }
+
+        if (this.port) {
+            await this.port.close();
+        }
+    }
+
+}
+
+
+
+function arrayStartsWith(buf, seq) {
+    if (seq.length > buf.length) return false;
+    for (let i = 0; i < seq.length; i++) {
+        if (buf[i] !== seq[i]) return false;
+    }
+    return true;
+}
+
+function arrayEndsWith(buf, seq) {
+    if (seq.length > buf.length) return false;
+    const offset = buf.length - seq.length;
+    for (let i = 0; i < seq.length; i++) {
+        if (buf[offset + i] !== seq[i]) return false;
+    }
+    return true;
+}
+
+function toIntArray(x) {
+    if (Array.isArray(x)) return x.map(n => Number(n));
+    if (typeof x === "string") return [...x].map(ch => ch.charCodeAt(0));
+    return null;
+}
+
+export function toBytes(commL) {
+  // Caso 1: è già un array di byte (Uint8Array o array normale)
+  if (Array.isArray(commL)) {
+    return commL.map(comm => toBytes(comm));
+  }
+
+  // Caso 2: è una stringa esadecimale tipo "FE FE 5E E0 05 FD"
+  if (typeof commL === "string") {
+    return Uint8Array.from(
+      commL
+        .trim()
+        .split("")        // split su spazi multipli
+        .map(b => parseInt(b, 16))
+    );
+  }
+
+  throw new Error("commL deve essere una stringa o un array di byte");
+}
+function getBytes(chunk) {
+    // Caso 1: stringa (uno o più caratteri)
+    if (typeof chunk === "string") {
+        const arr = [];
+        for (let i = 0; i < chunk.length; i++) {
+            arr.push(chunk.charCodeAt(i));
+        }
+        return arr;
+    }
+
+    // Caso 2: numero singolo
+    if (typeof chunk === "number") {
+        return [chunk];
+    }
+
+    // Caso 3: Uint8Array
+    if (chunk instanceof Uint8Array) {
+        return Array.from(chunk);
+    }
+
+    // Caso 4: ArrayBuffer
+    if (chunk instanceof ArrayBuffer) {
+        return Array.from(new Uint8Array(chunk));
+    }
+
+    console.warn("Tipo sconosciuto:", chunk);
+    return [];
+}
+
+
+export { websoketA,websoketB,COM,Interpreter };

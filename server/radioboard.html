@@ -1,0 +1,73 @@
+<div style="aspect-ratio: 9 / 5;width: 100%;background-color: #000;color: #0f0;font-family: Arial, sans-serif;padding: 20px;border-radius: 10px;text-align: center;box-sizing: border-box;">
+    <style>
+	button {margin: 5px;padding: 10px 15px;background-color: #555;color: #0f0;border: none;border-radius: 4px;cursor: pointer;}
+	button:hover {background-color: #003399;}
+	.keyboard-container {margin: auto;position: relative;width: 70%;height: 55%;background-color: #111;border-radius: 10px;border: 1px solid #ccc;}
+    .keyboard-container button{width: 15%;height: 15%;display: flex;justify-content: center;align-items: center;text-align: center;font-size: 1.5vw;}
+	.digit {word-spacing: -5px;cursor: pointer;user-select: none;}
+    .separator {word-spacing: -5px;font-weight: bold;}
+	button.inattivo {pointer-events: none;opacity: 0.5; /* opzionale, per far capire che è disattivo */}
+
+    </style>
+	<!-- Indicators -->
+    <div style="display: flex;justify-content: space-between;flex-wrap: nowrap;font-size: calc(1.5vw);margin-bottom: 10px; ">
+      <style>span {flex: 1;text-align: center;}</style>
+	<radio-indicator ind="BAND TX" style="display: contents;">
+      <span mode="VFOA" id="VFOAindics">VFOA</span>
+      <span mode="VFOB" id="VFOBindics">VFOB</span>
+	</radio-indicator >
+	<radio-indicator ind="VFOA MODE" style="display: contents;">
+      <span mode="CW,CW-R" id="CWindics">CW</span>
+      <span mode="USB,DATA-USB,RTTY-USB" id="USBindics">USB</span>
+      <span mode="LSB,DATA-LSB,RTTY-LSB" id="LSBindics">LSB</span>
+      <span mode="FM,FM-N,DATA-FM" id="FMindics">FM</span>
+      <span mode="AM,AM-N" id="AMindics">AM</span>
+	
+    </radio-indicator>
+	</div>
+
+    <!-- Frequency Display -->
+  <display-frequence style="display: flex;justify-content: center;align-items: center;gap: 2px;font-size: calc(8vw);font-weight: bold;margin-bottom: 10px;" id="frequencyDisplay" VFO="VFOA frequency">
+    <!-- Individual spans for digits -->
+    <span class="digit" id="d1">1</span>
+    <span class="digit" id="d2">4</span>
+    <span class="digit" id="d3">5</span>
+    <span class="separator">.</span>
+    <span class="digit" id="d4">4</span>
+    <span class="digit" id="d5">5</span>
+    <span class="digit" id="d6">0</span>
+    <span class="separator">.</span>
+    <span class="digit" id="d7">0</span>
+    <span class="digit" id="d8">0</span>
+    <span class="digit" id="d9">0</span>
+  </display-frequence>
+    <div style=" font-size: calc(3vw);" id="clarifier">0.00</div>
+    <div class="keyboard-container">
+      <!-- Left Side Buttons -->
+      <button style="top: 2%; left: 1%; position: absolute;">A/B</button>
+      <button style="top: 18%; left: 1%; position: absolute;">A=B</button>
+
+      <!-- Right Side Buttons -->
+      <button id="BAND UP" style="top: 2%; left: 81%; position: absolute;">Up</button>
+      <button id="BAND DOWN" style="top: 18%; left: 81%; position: absolute;">Down</button>
+
+      <!-- Bottom Button -->
+      <button type="update,VFOA MODE" id="FM" style="top: 7%; left: 33%; position: absolute;">FM</button>
+      <button type="update,VFOA MODE" id="USB" style="top: 24%; left: 33%; position: absolute;">USB</button>
+      <button type="update,VFOA MODE" id="CW" style="top: 41%; left: 33%; position: absolute;">CW</button>
+      <button type="update,VFOA MODE" id="RTTY-LSB" style="top: 58%; left: 33%; position: absolute;">R-LSB</button>
+      <button type="update,VFOA MODE" id="AM" style="top: 7%; left: 49%; position: absolute;">AM</button>
+      <button type="update,VFOA MODE" id="LSB" style="top: 24%; left: 49%; position: absolute;">LSB</button>
+      <button type="update,VFOA MODE" id="CW-R" style="top: 41%; left: 49%; position: absolute;">CW-R</button>
+      <button type="update,VFOA MODE" id="RTTY-USB" style="top: 58%; left: 49%; position: absolute;">R-USB</button>
+            
+      <button type="update,VFOA MODE" id="FM-N" style="top: 7%; left: 17%; position: absolute;">FM-N</button>
+      <button type="update,VFOA MODE" id="AM-N" style="top: 7%; left: 65%; position: absolute;">AM-N</button>
+            
+      <button type="update,VFOA MODE" id="DATA-USB" style="top: 75%; left: 33%; position: absolute;">D-USB</button>
+      <button type="update,VFOA MODE" id="DATA-LSB" style="top: 75%; left: 49%; position: absolute;">D-LSB</button>
+      <button type="update,VFOA MODE" id="DATA-FM" style="top: 75%; left: 17%; position: absolute;">D-FM</button>
+      <button type="update,VFOA MODE" id="C4FM" style="top: 75%; left: 65%; position: absolute;">C4FM</button>
+      
+    </div>
+</div>

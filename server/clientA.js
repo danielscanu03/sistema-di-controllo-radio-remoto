@@ -138,23 +138,32 @@ async function setupWebSocket() {
           const connectionDiv = document.getElementById("connection");
           connectionDiv.textContent = "online";
         } else if (alldata.type === 'update') {
-          
+          console.log()
           let commL = await generateSetCommands(radioInfo,alldata.data);
           console.log(commL);
           document.getElementById("Freq").innerHTML = JSON.stringify(radioInfo, null, 2);
           const writer = port.writable.getWriter();
           
-	  let bytes = toBytes(commL);
-	  const selectedRadio = getOV("Radio", 1);
-	  if(!Array.isArray(commL))bytes=[bytes];
-          for (const cmd of bytes) {
-          writer.write(cmd).then(() => {
-            writer.releaseLock();
-          }).catch(error => {
-            console.error("Failed to write message:", error);
-          });
-          await new Promise(r => setTimeout(r, 20,jsonConfig.radio[selectedRadio]["awaitms"]));
-	  }
+		  let bytes = toBytes(commL);
+		  const selectedRadio = getOV("Radio", 1);
+		  if(!Array.isArray(commL))bytes=[bytes];
+		  
+		  if(jsonConfig.radio[selectedRadio]["type"]=="text"){
+			  writer.write(new TextEncoder().encode(commL)).then(() => {
+				writer.releaseLock();
+			  }).catch(error => {
+				console.error("Failed to write message:", error);
+			  });
+			  await new Promise(r => setTimeout(r, 20,jsonConfig.radio[selectedRadio]["awaitms"]));
+		  }else if(jsonConfig.radio[selectedRadio]["type"]=="binary")for (const cmd of bytes) {
+			  writer.write(cmd).then(() => {
+				writer.releaseLock();
+			  }).catch(error => {
+				console.error("Failed to write message:", error);
+			  });
+			  await new Promise(r => setTimeout(r, 20,jsonConfig.radio[selectedRadio]["awaitms"]));
+		  }
+		  
         } else if (alldata.type === 'setEvent') {
           let commL = await generateCommand(radioInfo,alldata.event,"setformat",radioInfo);
 	  console.log(commL);
@@ -272,6 +281,7 @@ document.getElementById('startRecordingBtn').addEventListener('click', async () 
 
     // Create AudioWorkletNode and connect it to the audio graph
     const audioWorkletNode = new AudioWorkletNode(audioContext, 'audio_processor');
+	audioWorkletNode.parameters.get('samplerate').setValueAtTime(jsonConfig.audiopack, audioContext.currentTime);
     source = audioContext.createMediaStreamSource(stream);
     source.connect(audioWorkletNode);
     let Pk = 0;
@@ -282,7 +292,7 @@ document.getElementById('startRecordingBtn').addEventListener('click', async () 
         //const uint8Array = new Uint8Array([ 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20]);
         const base64String = btoa(String.fromCharCode(...uint8Array));
         let timedel = 0;
-        try{timedel=Date.now()-(base64String.length/sampleRate)*1000;}catch (err) {console.error('Error initializing audio timedel:', err);}
+        try{timedel=Date.now()-(jsonConfig.audiopack/sampleRate)*1000-100;}catch (err) {console.error('Error initializing audio timedel:', err);}
         const data = {
           type: 'audio',
           time: timedel,
@@ -442,6 +452,7 @@ const chunk = String.fromCharCode(biit);
           //tempinf["VFOA frequency"] = decoded["VFOA frequency"];
           //await generateSetCommands({},tempinf);
           radioInfo=decoded;
+		  if(!radioInfo["radio"])radioInfo["radio"]=selectedRadio;
           //radioInfo["BAND"] = tempinf["BAND"];
           // Update the innerHTML with the result
           document.getElementById("Freq").innerHTML = JSON.stringify(decoded, null, 2);

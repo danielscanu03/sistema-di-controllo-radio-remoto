@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 import uvicorn
@@ -11,15 +11,14 @@ from pathlib import Path
 import os
 import json
 
+import random
+import string
+
 from MessageHandler import MessageHandler, ClientData
 from BufferManager import BufferManager
 
-app = FastAPI(title = "AI server",description = "")
+app = FastAPI(title = "radio server",description = "")
 
-
-BASE_DIR = Path(__file__).resolve().parent
-
-BLOCKS_DIR = BASE_DIR / "blocks"
 
 
 class ChatHandler(MessageHandler):
@@ -29,7 +28,7 @@ class ChatHandler(MessageHandler):
         self.bufferPCM = BufferManager(24576);
     async def forward_message(self, message: str, data: ClientData, 
                               message2: str, sender=None):
-        print(f"forward_message to {data.pack}:{data.pack2}")
+        #print(f"forward_message to {data.pack}:{data.pack2}")
         if sender is None:
             # broadcast a tutti i client in clientAs
             if message:
@@ -38,7 +37,7 @@ class ChatHandler(MessageHandler):
                     "pack": data.pack,
                     "data": message
                 }
-                for ws, client_data in self.clientAs:
+                for ws, client_data in self.clients.getL("A"):
                     try:
                         await ws.send_text(json.dumps(modified_message))
                     except Exception as e:
@@ -48,30 +47,37 @@ class ChatHandler(MessageHandler):
         # altrimenti: logica per inoltro al sender specifico
     
         if message and sender:
+            
+            sendedby = self.clients.get(sender)[1]
+            
             # costruisci nome come IP:Port
-            name = f"{sender.client.host}:{sender.client.port}"
+            # name = f"{sender.client.host}:{sender.client.port}"
             modified_message = {
-                "from": name,
+                "from": sendedby.codelogin,
                 "pack": data.pack,
                 "data": message
             }
             msg_json = json.dumps(modified_message)
+            
+            for i,(ws,cli) in self.clients.getL(sendedby.connections):
+                await ws.send_text(msg_json)
+            
 
-            # se sender è in clientBs → manda a tutti clientAs
-            if any(ws == sender for ws, _ in self.clientBs):
-                for ws, _ in self.clientAs:
-                    try:
-                        await ws.send_text(msg_json)
-                    except Exception as e:
-                        print(f"Failed to send to client A: {e}")
+            # # se sender è in clientBs → manda a tutti clientAs
+            # if any(ws == sender for i,(ws, _) in self.clients.getL("B")):
+                # for i2,(ws, _) in self.clients.getL("A"):
+                    # try:
+                        # await ws.send_text(msg_json)
+                    # except Exception as e:
+                        # print(f"Failed to send to client A: {e}")
 
-            # se sender è in clientAs → manda a tutti clientBs
-            elif any(ws == sender for ws, _ in self.clientAs):
-                for ws, _ in self.clientBs:
-                    try:
-                        await ws.send_text(msg_json)
-                    except Exception as e:
-                        print(f"Failed to send to client B: {e}")
+            # # se sender è in clientAs → manda a tutti clientBs
+            # elif any(ws == sender for i,(ws, _) in self.clients.getL("A")):
+                # for i2,(ws, _) in self.clients.getL("B"):
+                    # try:
+                        # await ws.send_text(msg_json)
+                    # except Exception as e:
+                        # print(f"Failed to send to client B: {e}")
 
             data.pack += 1
 
@@ -91,24 +97,38 @@ class ChatHandler(MessageHandler):
 
 
     async def onConnect(self, websocket: WebSocket, path: str, arg=None):
+        code = websocket.query_params.get("login")
         client_ip = websocket.client.host
         client_port = websocket.client.port
-        default_data = ClientData(f"{client_ip}:{client_port}", 0, True)
+        default_data = ClientData(f"{client_ip}:{client_port}/{code}", 0, True)
+        default_data.codelogin = code
+        default_data.typewb = "A" if path == "/websocketA" else "B"
+        print(default_data.getcode())
+        self.clients.add(websocket, default_data)
         if path == "/websocketA":
             self.clientAs.append((websocket, default_data))
+            default_data.connections.append("B")
         else:
             self.clientBs.append((websocket, default_data))
+            default_data.connections.append("A")
         print(f"Client connected to {path}: {client_ip}")
 
         # puoi salvare il websocket in una lista se vuoi broadcast
     async def remove_client(self,websocket: WebSocket, webSocketPath: str):
         clients = self.clientAs if webSocketPath == "/websocketA" else self.clientBs
         # trova e rimuove il client
-        for i, (ws, data) in enumerate(clients):
+        
+        removed = self.clients.disconnect(websocket)
+        print(f"client removed {removed[1].username}")
+        
+        for (i,item),sub in [(item,sub) for sub in [self.clientAs,self.clientBs] for item in enumerate(sub)]:
+            (ws, data) = item
             if ws == websocket:
-                clients.pop(i)
+                sub.pop(i)
                 print(f"Client disconnected from {webSocketPath}: {data.username}")
-                break
+            
+            
+            
 
     async def onDisconnect(self, websocket: WebSocket, path: str, arg=None):
         print(f"Disconnected: {path}")
@@ -128,7 +148,7 @@ class ChatHandler(MessageHandler):
         # Finale o meno
         data.final = data.lasting <= 0
 
-        print(f"onMessage updating data N:{data.username} end:{data.final} L:{len(message)} to:{data.lasting}")
+        #print(f"onMessage updating data N:{data.username} end:{data.final} L:{len(message)} to:{data.lasting}")
 
         # Aggiorna i dati del client
         self.update_data(websocket, data)
@@ -140,11 +160,52 @@ class ChatHandler(MessageHandler):
 
 chatHandler = ChatHandler()
 
+from pydantic import BaseModel
+
+class ErrorLog(BaseModel):
+    error: str
+    time: int
+    stack: str
+
+
+@app.post("/log/error")
+def log_error(request: ErrorLog):
+    print("Errore:", request.error)
+    print("Stack:", request.stack)
+    print("Time:", request.time)
+    return {"status": "ok"}
+
+def generate_random_code(length=6):
+    chars = string.ascii_uppercase + string.digits
+    return ''.join(random.choice(chars) for _ in range(length))
+
+@app.get("/signin")
+def signin():
+    code = generate_random_code()
+    return {"code": code}
+
+
+@app.get("/infoss")
+async def root(request: Request):
+    client_ip = f"{request.client.host}:{request.client.port}"
+    cla = [(v.username,v.codelogin,v.getcode()) for (c,v) in chatHandler.clientAs]
+    clb = [(v.username,v.codelogin,v.getcode()) for (c,v) in chatHandler.clientBs]
+    clr = [(v.username,v.codelogin,v.getcode(),v.typewb) for (c,v) in chatHandler.clients.clients]
+    print(cla)
+    print(clb)
+    print(clr)
+    return {"ip": client_ip}
+
 
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return index_html
+    #return index_html
+    from pathlib import Path
+    html_path = Path("server/radiocontroller.html")
+    return html_path.read_text(encoding="utf-8")
+    
+
 @app.get("/clientA.html", response_class=HTMLResponse)
 async def root():
     return clientA_html
@@ -161,6 +222,7 @@ async def root():
 @app.get("/module.js")
 async def root():
     return Response(content=module_js, media_type="application/javascript")
+
     
 @app.get("/ping")
 async def root():
@@ -176,6 +238,8 @@ async def websocket_a(websocket: WebSocket):
             await chatHandler.onMessage(websocket, data, "/websocketA")
     except WebSocketDisconnect:
         await chatHandler.onDisconnect(websocket, "/websocketA")
+    except RuntimeError:
+        print("error");
 
 @app.websocket("/websocketB")
 async def websocket_b(websocket: WebSocket):

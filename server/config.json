@@ -6,6 +6,7 @@
   "dataBits": [ "7", "8" ],
   "audioout": [ "none" ],
   "audioin": [ "none" ],
+  "audiopack":4096,
   "radio": {
     "FT-991A": {
       "SerialSpeed": "4800",
@@ -33,6 +34,7 @@
       "frequencerequest":"IF;OI;FT;RM0;SC;",
       "commands": {
         "IF": {
+		  "cmd":[73,70],
           "setreqsimp": "",
           "setformat": [],
           "readreqsimp": "IF",
@@ -101,6 +103,7 @@
           "end":"end"
         },
         "OI": {
+		  "cmd":[79, 73],
           "setreqsimp": "",
           "setformat": [],
           "readreqsimp": "OI",
@@ -333,6 +336,7 @@
           "command":"command"
         },
         "MD": {
+		  "cmd":"MD",
           "setreqsimp": "MD00",
           "setformat": [
             {
@@ -361,6 +365,7 @@
           "command":"command"
         },
         "RM": {
+		  "cmd":[82,77],
           "setreqsimp": "",
           "setformat": [],
           "readreqsimp": "RM0",
@@ -460,6 +465,7 @@
           "command":"command"
         },
         "SC": {
+		  "cmd":[83,67],
           "setreqsimp": "SC0",
           "setformat": [
             {
@@ -496,6 +502,7 @@
           "command":"command"
         },
         "FT": {
+		  "cmd":[70,84],
           "setreqsimp": "FT2",
           "setformat": [
             {
@@ -534,6 +541,7 @@
           "command":"command"
         },
         "FA": {
+		  "cmd":"FA",
           "beforeset": "BS",
           "setreqsimp": "FA145450000",
           "setformat": [
@@ -558,6 +566,7 @@
           "command":"command"
         },
         "FB": {
+		  "cmd":"FB",
           "setreqsimp": "FB145450000",
           "setformat": [
             {
@@ -581,6 +590,7 @@
           "command":"command"
         },
         "BU": {
+		  "cmd":"BU",
           "setreqsimp": "BU0",
           "setformat": [
             {
@@ -612,6 +622,7 @@
           "command":"command"
         },
         "BD": {
+		  "cmd":"BD",
           "setreqsimp": "BD0",
           "setformat": [
             {
@@ -648,27 +659,35 @@
           "format": "command"
         },
         "SQL": {
+		  "type":"strint",
           "format": [ 0, 100 ]
         },
         "METER value": {
+		  "type":"strint",
           "format": [ 0, 255 ]
         },
         "VFOA Memory channel": {
+		  "type":"strint",
           "format": [ 0, 117 ]
         },
         "VFOB Memory channel": {
+		  "type":"strint",
           "format": [ 0, 117 ]
         },
         "VFOA frequency": {
+		  "type":"strint",
           "format": [ 30000, 470000000 ]
         },
         "VFOB frequency": {
+		  "type":"strint",
           "format": [ 30000, 470000000 ]
         },
         "VFOA Clarifier offset": {
+		  "type":"strint",
           "format": [ -9999, 9999 ]
         },
         "VFOB Clarifier offset": {
+		  "type":"strint",
           "format": [ -9999, 9999 ]
         },
         "BAND TX": {
@@ -743,7 +762,8 @@
           "ansdecode": [ "OFF", "FAST", "MID", "SLOW", "AUTO-FAST", "AUTO-MID", "AUTO-SLOW" ]
         },
         "0fix": { "preset": "0" },
-        "00fix": { "preset": "00" }
+        "00fix": { "preset": "00" },
+		"end":{"preset": ";"}
 
       },
       "commandlist": {
@@ -937,9 +957,9 @@
 			"preset": "254,254",
 			"must": ""
 		},
-        	"command": {
-        	  "format": "command"
-        	},
+        "command": {
+        	"format": "command"
+        },
 		"end":{
 			"preset": "253",
 			"must": ""

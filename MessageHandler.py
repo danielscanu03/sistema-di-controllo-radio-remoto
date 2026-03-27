@@ -6,11 +6,30 @@ from BufferManager import BufferManager
 
 class ClientData:
     def __init__(self, username="", size=0, connected=True):
-        self.final = False
-        self.lasting = 0
         self.username = username
         self.lastMessageSize = size
         self.isConnected = connected
+        self.codelogin = None
+        self.connections = []
+        self.typewb = ""
+        
+        self.clear()
+    def getcode(self):
+        
+        sep = self.codelogin.find('-') if self.codelogin else None
+        return (self.codelogin[:sep],self.codelogin[sep+1:]) if sep else None
+        
+    def disconnect(self,clicode):
+        if not clicode:
+            self.connections = []
+        else:
+            self.connections.pop(self.connections.find(clicode))
+    def connect(self,clicode):
+        self.connections.append(clicode)
+        
+    def clear(self):
+        self.final = False
+        self.lasting = 0
         self.isnew = True
         self.pack = 0
         self.pack2 = 0
@@ -21,14 +40,65 @@ class ClientData:
         self.audioStarted = False
         self.typeValue = ""
         self.alength = -1
+        return self
 
-
-
+class ClientManager():
+    def __init__(self):
+        self.clients: list[tuple[WebSocket, ClientData]] = []
+        
+    def add(self,websocket: WebSocket, default_data: ClientData):
+        self.clients.append((websocket,default_data))
+    
+    def remove(self,element) -> tuple[WebSocket, ClientData]:
+        i,(wb,cli)=self.getI(element)
+        self.clients.pop(i)
+        return (wb,cli)
+    def get(self,element) -> tuple[WebSocket, ClientData]:
+        i,(wb,cli)=self.getI(element)
+        return wb,cli
+    def getL(self,element) -> [tuple[int,tuple[WebSocket, ClientData]]]:
+        ret = [] 
+        def controll(i,wb,cli,conds):
+            if isinstance(conds,WebSocket) and wb==conds:
+                ret.append((i,(wb,cli)))
+            elif isinstance(conds,ClientData) and cli==conds:
+                ret.append((i,(wb,cli)))
+            elif isinstance(conds,list):
+                for cond in conds:
+                    controll(i,wb,cli,cond)
+            elif isinstance(conds,str):
+                if conds == cli.typewb:
+                    ret.append((i,(wb,cli)))
+                elif conds == cli.codelogin:
+                    ret.append((i,(wb,cli)))
+        for i,(wb,cli) in enumerate(self.clients):
+            controll(i,wb,cli,element)
+        
+        return ret
+        
+        
+    def getI(self,element) -> (int,tuple[WebSocket, ClientData]):
+        list=self.getL(element)
+        return list[0] if len(list)!=0 else None
+        
+    def update(self,websocket: WebSocket,clientdata: ClientData):
+        i,(wb,cli)=self.getI(websocket)
+        self.clients[i]=(wb,clientdata)
+        
+    def disconnect(self,element):
+        clientdata=self.get(element)[1]
+        for i,(wb,cli) in enumerate(self.clients):
+            for i2,conn in enumerate(cli.connections):
+                if conn==clientdata.codelogin:
+                    cli.connections.pop(i2)
+                    
+        return self.remove(clientdata)
 
 class MessageHandler:
     def __init__(self):
         self.clientAs: list[tuple[WebSocket, ClientData]] = []
         self.clientBs: list[tuple[WebSocket, ClientData]] = []
+        self.clients: ClientManager = ClientManager();
         self.Datatime = 0
         self.milltime = 0
         self.audiosampleRate = 8000
@@ -50,6 +120,9 @@ class MessageHandler:
 
     def update_data(self, websocket: WebSocket, data: ClientData):
         # aggiorna clientAs
+        
+        self.clients.update(websocket,data)
+        
         for i, (ws, cd) in enumerate(self.clientAs):
             if ws == websocket:
                 self.clientAs[i] = (ws, data)
@@ -61,15 +134,9 @@ class MessageHandler:
 
     def get_data(self, websocket: WebSocket) -> ClientData:
         # cerca in clientAs
-        for ws, cd in self.clientAs:
-            if ws == websocket:
-                return cd
-        # cerca in clientBs
-        for ws, cd in self.clientBs:
-            if ws == websocket:
-                return cd
-        print("getData error")
-        return ClientData()  # ritorna un ClientData di default
+        data = self.clients.get(websocket)[1]
+        print("getData error") if not data else None
+        return data if data else ClientData()  # ritorna un ClientData di default
     
 
     def change_var(self, message: str, key: str, value: str) -> str:
@@ -110,16 +177,16 @@ class MessageHandler:
     def escape_quotes(self,input_str: str) -> str:
         return input_str.replace('"', '\\"')
         
-    def save_json_to_fs(json_str: str, reset: bool = False, filename: str = "server/datatemp.json"):
+    def save_json_to_fs(self,json_str: str, reset: bool = False, filename: str = "server/datatemp.json"):
         try:
             # Modalità: overwrite ("w") oppure append ("a")
             mode = "w" if reset else "a"
             with open(filename, mode, encoding="utf-8") as f:
                 f.write(json_str)
-            print(f"Saved JSON to {filename} (reset={reset})")
+            #print(f"Saved JSON to {filename} (reset={reset})")
         except Exception as e:
             print(f"Failed to save JSON: {e}")
-    def parse_json_from_fs(filename: str, filter_keys: list[str] | None = None) -> dict:
+    def parse_json_from_fs(self,filename: str, filter_keys: list[str] | None = None) -> dict:
         try:
             with open(filename, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -148,7 +215,7 @@ class MessageHandler:
         data.isnew = False
         data.typeValue = self.get_var(message,"\"type\":\"")
         alength_value = self.get_var(message,"\"alength\":")
-        print(f"processing L {alength_value}")
+        #print(f"processing L {alength_value}")
         if alength_value:
             if alength_value.isdigit():
                 data.alength = int(alength_value)
@@ -258,7 +325,7 @@ class MessageHandler:
             await self.forward_message("end", data, "end", sender)
 
             # reset dei dati
-            temp_data = ClientData(data.username)
+            temp_data = data.clear()
             self.update_data(sender, temp_data)
         else:
             self.update_data(sender, data)
