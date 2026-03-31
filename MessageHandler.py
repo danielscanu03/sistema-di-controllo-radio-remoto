@@ -12,6 +12,7 @@ class ClientData:
         self.codelogin = None
         self.connections = []
         self.typewb = ""
+        self.radio = ""
         
         self.clear()
     def getcode(self):
@@ -54,7 +55,10 @@ class ClientManager():
         self.clients.pop(i)
         return (wb,cli)
     def get(self,element) -> tuple[WebSocket, ClientData]:
-        i,(wb,cli)=self.getI(element)
+        getted=self.getI(element)
+        if not getted:
+            return None,None
+        i,(wb,cli)=getted
         return wb,cli
     def getL(self,element) -> [tuple[int,tuple[WebSocket, ClientData]]]:
         ret = [] 
@@ -67,6 +71,7 @@ class ClientManager():
                 for cond in conds:
                     controll(i,wb,cli,cond)
             elif isinstance(conds,str):
+                #print(f"str:{conds} == {cli.typewb} or {cli.codelogin} of {len(self.clients)}")
                 if conds == cli.typewb:
                     ret.append((i,(wb,cli)))
                 elif conds == cli.codelogin:

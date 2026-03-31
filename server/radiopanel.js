@@ -11,6 +11,39 @@ async function getConfig(){
 		console.error("Error fetching config.json:", error);
 	}
 }
+async function setlisten(listen){
+	try {
+		const response = await fetch(`/listen?login=${getSigninCode()}&set=${listen}`);
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+		return await response.json();
+	} catch (error) {
+		console.error("Error fetching config.json:", error);
+	}
+}
+async function getHosts(){
+	try {
+		const response = await fetch("/hosts");
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+		return await response.json();
+	} catch (error) {
+		console.error("Error fetching config.json:", error);
+	}
+}
+async function getclients(){
+	try {
+		const response = await fetch(`/clients?login=${getSigninCode()}`);
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+		return await response.json();
+	} catch (error) {
+		console.error("Error fetching config.json:", error);
+	}
+}
 
 function pickProps(source, props) {
     const result = {};
@@ -117,6 +150,17 @@ class RadioPanel extends HTMLElement {
 		ant.style.position="absolute";
 		
 		
+		let setionU = document.createElement("div")
+		let utentlist = document.createElement("radio-utentlist")
+		setionU.style.top="0%";
+		setionU.style.right="20%";
+		setionU.style.width="20%";
+		setionU.style.aspectRatio= "1 / 1";
+		setionU.style.position="absolute";
+		
+		
+		setionU.appendChild(utentlist);
+		this.appendChild(setionU);
 		this.appendChild(document.createElement("radio-board"));
 		let radioinfo = document.createElement("radio-info");
 		
@@ -212,11 +256,17 @@ class RadioPanel extends HTMLElement {
 			if(scelta.type.value=="guest"){
 				this.replaceChildren();
 				const choice = document.createElement("radio-choice");
-				choice.items = {};
-				choice.emitChoice=(scelta) => {console.log(scelta);};
+				let hosts = await getHosts()
+				console.log(hosts.hosts);
+				choice.items = {host:hosts.hosts.map(e => `${e.codelogin} ${e.radio}`)};
+				choice.emitChoice= async (scelta) => {
+					this.remoteradio=hosts.hosts[scelta.host.index].codelogin
+					this.replaceChildren();
+					await this.start();
+					
+				};
 				this.appendChild(choice);
-				this.replaceChildren();
-				this.start();
+
 				//let web = new websoketB();
 			}
 		} catch (error) {sendErrorToServer(error);}};
@@ -227,7 +277,7 @@ class RadioPanel extends HTMLElement {
 	}
 	
 	update(name,text,element) {
-		//console.log("dispach:",`radio-${name}`,text);
+		//if(name=="clientAdded")console.log("dispach:",`radio-${name}`,text);
 		this.dispatchEvent(new CustomEvent(`radio-${name}`, {detail:{
 			detail: text,
 			targetElement: element?element:this
@@ -413,7 +463,53 @@ class DisplayFrequence extends HTMLElement {
 }
 
 
+class RadioUtentList extends HTMLElement {
+    constructor() {
+        super();
+    }
 
+    connectedCallback() {
+		let img = document.createElement("img");
+		let Ulist = document.createElement("Ulist");
+		let Unum = document.createElement("div");
+		let style = document.createElement("style");
+		style.innerHTML = `
+		Ulist {display: none;}
+		radio-utentlist[open] Ulist {display: block;top:20%;position:absolute;}
+		radio-utentlist[open] img {display: block;width:20%;left:40%;}
+		radio-utentlist img {display:block;width:40%;left:60%;position:absolute;}
+		radio-utentlist[B] img {pointer-events:none;}
+		radio-utentlist span {color: #0f0;display: block;}`;
+		img.id = "icon"; 
+		img.src="/immagini/utents.svg";
+
+		this.appendChild(style);
+		this.appendChild(img);
+		this.appendChild(Ulist);
+		this.appendChild(Unum);
+		this.style.width="100%";
+		this.toggleAttribute("B",true);
+		
+		this.querySelector("#icon").addEventListener("click", () => {
+            this.toggleAttribute("open");
+        });
+		
+		
+		this.closest("radio-panel").addEventListener("radio-clientAdded", (ev)=>{let utent = ev.detail.detail.client;
+			console.log(utent);
+			if(utent.type=="B")this.toggleAttribute("B",false);
+			let U = document.createElement("span");
+			U.id = utent.codelogin;
+			U.textContent = utent.codelogin;
+			this.querySelector("Ulist").appendChild(U);
+		});
+		this.closest("radio-panel").addEventListener("radio-clientRemoved", (utent)=>{
+			
+		});
+		
+    }
+
+}
 class RadioInfo extends HTMLElement {
     constructor() {
         super();
@@ -555,6 +651,8 @@ class RadioAntenna extends HTMLElement {
 
         this.parentElement.addEventListener("radio-update", this._listener);
         this.parentElement.addEventListener("radio-setEvent", this._listener2);
+		
+		
 	}
 	disactive(){
 		this.style.opacity= 0.3;
@@ -566,8 +664,10 @@ class RadioAntenna extends HTMLElement {
 			this.socket=null;
 		}
 		
+		clearInterval(this.connections);
+		
 	}
-	active(){
+	async active(){
 		this.style.opacity= 1;
 		this.on=true;
 		
@@ -598,6 +698,41 @@ class RadioAntenna extends HTMLElement {
 			if(close.code==1006)this.active();
 		};
 		this.socket=newsocket;
+		
+		let remoteradio = this.closest("radio-panel")?.remoteradio
+		if(remoteradio){
+			await this.socket.waitConnected();
+			await setlisten(remoteradio)
+		}
+		
+		this.connections = setInterval(async () => {
+			let newClients = (await getclients()).clients;
+			let new_list = {};
+			let old_list = {};
+			newClients?.forEach(c =>{new_list[c.codelogin]=c;});
+			this.clients?.forEach(o =>{old_list[o.codelogin]=o;});
+			let all_clients = {...old_list,...new_list};
+			let clientAdded = {...all_clients};
+			let clientRemoved = {...all_clients};
+			
+			Object.entries(all_clients).forEach(([key,cli],index) => {
+				Object.entries(new_list).forEach(([key2,cli2],index) => {
+					if(key==key2)delete clientRemoved[key];
+				});
+				Object.entries(old_list).forEach(([key2,cli2],index) => {
+					if(key==key2)delete clientAdded[key];
+				});
+			});
+			
+			//console.log(this.clients,newClients,clientAdded,clientRemoved,newClients?.some(o => o.codelogin === this.clients?.[0]?.codelogin)?true:false);
+			this.clients = newClients;
+			Object.entries(clientAdded).forEach(([key,cli],index) => this.parentElement.update("clientAdded",{client:cli}));
+			Object.entries(clientRemoved).forEach(([key,cli],index) => this.parentElement.update("clientRemoved",{client:cli}));
+			
+			if(Object.entries(clientAdded).length!=0)this.closest("radio-panel")?.update("update",this.closest("radio-panel").querySelector("radio-info").radioinfo);
+			
+		}, 5000);
+		
 	}
 	ping(text) {
 		let label = this.querySelector(".label-above");
@@ -714,10 +849,22 @@ class RadioSpeaker extends HTMLElement {
 		
 		this.play(float32Array);
 	}
+	getQueueTime() {
+		if (!this.audioQueue || this.audioQueue.length === 0) return 0;
+
+		let totalSeconds = 0;
+
+		for (const buffer of this.audioQueue) {
+			totalSeconds += buffer.length / buffer.sampleRate;
+		}
+
+		return totalSeconds;
+	}
 	play(paket){
 		if(!this.audioQueue)return;
 		const audioBuffer = this.audioContext.createBuffer(1, paket.length, this.audioContext.sampleRate);
 		audioBuffer.copyToChannel(paket, 0);
+		if(this.getQueueTime()>2)this.audioQueue=[];
 		this.audioQueue.push(audioBuffer);
 		if (!this.isPlaying) {
             this.playAudioFromQueue();
@@ -885,6 +1032,8 @@ class RadioChoice extends HTMLElement {
 customElements.define("radio-mic", RadioMic);
 
 customElements.define("radio-info", RadioInfo);
+
+customElements.define("radio-utentlist", RadioUtentList);
 
 customElements.define("radio-choice", RadioChoice);
 

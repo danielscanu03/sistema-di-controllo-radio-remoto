@@ -116,7 +116,52 @@ class messsageHandle{
 	}
 }
 
+class MySocket extends WebSocket {
+    constructor(url) {
+        super(url);
+    }
 
+    waitConnected() {
+        return new Promise((resolve, reject) => {
+
+            // Se è già connesso, risolvi subito
+            if (this.readyState === WebSocket.OPEN) {
+                return resolve();
+            }
+
+            // Se è già fallito/chiuso, rifiuta subito
+            if (this.readyState === WebSocket.CLOSED || this.readyState === WebSocket.CLOSING) {
+                return reject(new Error("WebSocket already closed"));
+            }
+
+            // Eventi
+            const onOpen = () => {
+                cleanup();
+                resolve();
+            };
+
+            const onError = (err) => {
+                cleanup();
+                reject(err);
+            };
+
+            const onClose = () => {
+                cleanup();
+                reject(new Error("WebSocket closed before connecting"));
+            };
+
+            const cleanup = () => {
+                this.removeEventListener("open", onOpen);
+                this.removeEventListener("error", onError);
+                this.removeEventListener("close", onClose);
+            };
+
+            this.addEventListener("open", onOpen);
+            this.addEventListener("error", onError);
+            this.addEventListener("close", onClose);
+        });
+    }
+}
 
 class websoketR extends WebSocket{
 	
@@ -153,7 +198,7 @@ class websoketR extends WebSocket{
 			this.onlinechek?.(completed.from,elapsed);
 		} else if (alldata.type === 'ping') {
           // Respond with a pong message
-		  console.log(completed);
+		  //console.log(completed);
           const pongData = {
             type: 'pong',
             time: alldata.time,
@@ -178,7 +223,46 @@ class websoketR extends WebSocket{
         // Incomplete JSON, keep accumulating data
     }
   }
+  waitConnected() {
+	return new Promise((resolve, reject) => {
 
+	  // Se è già connesso, risolvi subito
+	  if (this.readyState === WebSocket.OPEN) {
+		return resolve();
+	  }
+
+	  // Se è già fallito/chiuso, rifiuta subito
+	  if (this.readyState === WebSocket.CLOSED || this.readyState === WebSocket.CLOSING) {
+		return reject(new Error("WebSocket already closed"));
+	  }
+
+	  // Eventi
+	  const onOpen = () => {
+		cleanup();
+		resolve();
+	  };
+
+	  const onError = (err) => {
+		cleanup();
+		reject(err);
+	  };
+
+	  const onClose = () => {
+		cleanup();
+		reject(new Error("WebSocket closed before connecting"));
+	  };
+
+	  const cleanup = () => {
+		this.removeEventListener("open", onOpen);
+		this.removeEventListener("error", onError);
+		this.removeEventListener("close", onClose);
+	  };
+
+	  this.addEventListener("open", onOpen);
+	  this.addEventListener("error", onError);
+	  this.addEventListener("close", onClose);
+    });
+  }
   handleError(error){
 	if(this.handlererror)this.handlererror?.(error);
     else console.error('WebSocket error:', error);
@@ -195,12 +279,12 @@ class websoketR extends WebSocket{
 
 class websoketA extends websoketR{
 	constructor() {
-        super('wss://' + window.location.hostname + '/websocketA?login='+getSigninCode());
+        super(((location.protocol === "https:")?'wss://':'ws://') + window.location.host + '/websocketA?login='+getSigninCode());
 	}
 }
 class websoketB extends websoketR{
 	constructor() {
-        super('wss://' + window.location.hostname + '/websocketB?login='+getSigninCode());
+        super(((location.protocol === "https:")?'wss://':'ws://') + window.location.host + '/websocketB?login='+getSigninCode());
 		this.ping = setInterval(() => {
 			this.send(JSON.stringify({
 				type: 'ping',
@@ -293,7 +377,7 @@ class Interpreter{
 				
 			}
 			
-			console.log(utilityformat);
+			//console.log(utilityformat);
 			
 		}
 		
@@ -411,6 +495,8 @@ class Interpreter{
 	}
 	
 }
+
+
 function arraysEqual(a, b) {
     if (a === b) return true;                // stesso riferimento
     if (!a || !b) return false;              // uno dei due è null/undefined
@@ -466,6 +552,7 @@ class COM{
 		this.lock=true;
 	}
 	async open(){
+		if(!this.port)return;
 		await this.port.open(this.optionsport);
 		this.port.readable.pipeTo(new WritableStream({write: (bytes) => {
 			const byte = getBytes(bytes);

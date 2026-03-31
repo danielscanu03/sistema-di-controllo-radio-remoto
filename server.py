@@ -107,10 +107,10 @@ class ChatHandler(MessageHandler):
         self.clients.add(websocket, default_data)
         if path == "/websocketA":
             self.clientAs.append((websocket, default_data))
-            default_data.connections.append("B")
+            #default_data.connections.append("B")
         else:
             self.clientBs.append((websocket, default_data))
-            default_data.connections.append("A")
+            #default_data.connections.append("A")
         print(f"Client connected to {path}: {client_ip}")
 
         # puoi salvare il websocket in una lista se vuoi broadcast
@@ -183,6 +183,45 @@ def generate_random_code(length=6):
 def signin():
     code = generate_random_code()
     return {"code": code}
+    
+@app.get("/hosts")
+def hosts():
+    cla = [{"codelogin":v.codelogin,"radio":v.radio} for i,(c,v) in chatHandler.clients.getL("A")]
+    return {"hosts": cla}
+    
+@app.get("/clients")
+def clients(request: Request):
+    login = request.query_params.get("login")
+    logindata=chatHandler.clients.get(login)[1]
+    cla = [{"codelogin":v.codelogin,"radio":v.radio,"type":v.typewb} for i,(c,v) in chatHandler.clients.getL(logindata.connections)] if logindata else []
+    return {"clients": cla}
+    
+@app.get("/listen")
+def listen(request: Request):
+    login = request.query_params.get("login")
+    set = request.query_params.get("set")
+    add = request.query_params.get("add")
+    
+    client=chatHandler.clients.get(login)[1]
+    
+    
+    if client and set:
+        host=chatHandler.clients.get(set)[1]
+        if not host:
+            return {"state": "listen not found"}
+        host.connections.append(login)
+        client.connections=[set]
+        print(host,host.connections)
+    elif client and add:
+        host=chatHandler.clients.get(add)[1]
+        if not host:
+            return {"state": "listen not found"}
+        host.connections.append(login)
+        client.connections.append(add)
+        print(host,host.connections)
+    else:
+        print(f"error client not found:{login} / {set} / {add}")
+    return {"state": "OK"}
 
 
 @app.get("/infoss")
