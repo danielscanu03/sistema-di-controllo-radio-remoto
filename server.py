@@ -18,6 +18,15 @@ from MessageHandler import MessageHandler, ClientData
 from BufferManager import BufferManager
 
 app = FastAPI(title = "radio server",description = "")
+@app.middleware("http")
+async def no_cache_middleware(request: Request, call_next):
+    response: Response = await call_next(request)
+
+    # Se non hai impostato tu un header di cache, lo metto io
+    if "Cache-Control" not in response.headers:
+        response.headers["Cache-Control"] = "no-store"
+
+    return response
 
 
 
