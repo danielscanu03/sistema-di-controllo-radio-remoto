@@ -52,7 +52,7 @@ async def no_cache_middleware(request: Request, call_next):
 
         return response
     except Exception as e:
-        await debug_processor("EXCEPTION", str(e),None,None)
+        await debug_processor("EXCEPTION", str(e),{},None)
         raise
 
 
@@ -256,12 +256,12 @@ class ErrorLog(BaseModel):
     stack: str
 
 @app.post("/log/error")
-def log_error(request: ErrorLog):
+async def log_error(request: ErrorLog):
     print("Errore:", request.error)
     print("Stack:", request.stack)
     print("Time:", request.time)
     
-    debug_processor("remote_error",request.error,{"javascript.stack":request.stack},request.time)
+    await debug_processor("remote_error",request.error,{"javascript.stack":request.stack},request.time)
     
     return {"status": "ok"}
 

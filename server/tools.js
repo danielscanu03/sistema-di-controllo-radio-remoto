@@ -26,7 +26,22 @@ function driftCheck() {
 
 // Avvio
 driftCheck();
+export async function getPorts(newport) {
+    const port = null;
+	if(newport) try{port=await navigator.serial.requestPort();}catch (error) {}
+	let coms = (await navigator.serial.getPorts()).filter(d => d.connected && d.getInfo()?.usbVendorId);
+	if(coms.length==0)try{
+		port=await navigator.serial.requestPort();
+		coms = (await navigator.serial.getPorts()).filter(d => d.connected && d.getInfo()?.usbVendorId);
+	}catch (error) {}
 
+	const index = port?coms.indexOf(port):0;
+	if(index==-1)alert("COM incopatible");
+	else coms = [coms[index], ...coms.slice(0, index), ...coms.slice(index + 1)];
+	const comsnam = coms.map(obj => {let inf=obj?.getInfo();return `${inf?.usbProductId}:${inf?.usbVendorId}`;});
+
+	return {comsnam,coms};
+}
 export async function sendErrorToServer(err) {
     fetch("/log/error", {
         method: "POST",

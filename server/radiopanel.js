@@ -1,4 +1,4 @@
-import { websoketA,websoketB,COM,Interpreter,requestSigninCode,getSigninCode,sendErrorToServer } from '/tools.js';
+import { websoketA,websoketB,COM,Interpreter,requestSigninCode,getSigninCode,sendErrorToServer,getPorts } from '/tools.js';
 
 window.onerror = function (message, source, lineno, colno, error) {
     sendErrorToServer(error || message);
@@ -191,7 +191,7 @@ class RadioPanel extends HTMLElement {
 			if(scelta.type.value=="hosting"){
 				this.replaceChildren();
 				let com = {comsnam:[],coms:[]};
-				try{com = await getPorts();}catch (err){}
+				try{com = await getPorts();}catch (err){await sendErrorToServer(err);}
 				
 				let microphones = [];
 				try{microphones = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput").map(obj => obj.label);}catch (err){console.log("???");}

@@ -62,6 +62,7 @@ def deep_merge(a, b):
 
 async def debug(type,name,data,time):
     temp = {f"{type}":{f"{name}":{"data":data,"time":time}}}
+    
     if "uvicorn.log" in data:
         temp[type][name]={"uvicorn.log":{}}
         cache=temp[type][name]["uvicorn.log"]
@@ -94,14 +95,14 @@ async def debug(type,name,data,time):
         signature = stack_signature(stack)
         normalized = normalize_stack(stack)
 
-        if signature not in temp[event_type][name]:
-            temp[event_type][name][signature] = {
+        if signature not in temp[type][name]:
+            temp[type][name][signature] = {
                 "detail": normalized,
                 "count": 0,
                 "times": []
             }
      
-        entry = temp[event_type][name][signature]
+        entry = temp[type][name][signature]
 
         entry["count"] += 1
         entry["times"].append(time)
