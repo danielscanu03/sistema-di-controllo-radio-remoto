@@ -1,4 +1,46 @@
 
+
+
+// Variabile globale leggibile da qualsiasi script
+window.pageThrottled = false;
+
+// Imposta l'intervallo desiderato
+const INTERVAL = 200; // ms
+let last = performance.now();
+
+function driftCheck() {
+    const now = performance.now();
+    const delta = now - last;
+
+    // Se il ritardo è il doppio dell'intervallo → throttling
+    if (delta > INTERVAL * 2) {
+        window.pageThrottled = true;
+    } else {
+        window.pageThrottled = false;
+    }
+    last = now;
+
+    // Timer preciso (non usare setInterval)
+    setTimeout(driftCheck, INTERVAL);
+}
+
+// Avvio
+driftCheck();
+
+export async function sendErrorToServer(err) {
+    fetch("/log/error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            error: String(err),
+			stack: err.stack?err.stack:"null",
+            time: Date.now()
+        })
+    }).catch(() => {});
+}
+
+
+
 export async function requestSigninCode(timeout = 5000) {
     // 1) Se esiste già in cache, lo ritorno subito
     const cached = localStorage.getItem("signin_code");

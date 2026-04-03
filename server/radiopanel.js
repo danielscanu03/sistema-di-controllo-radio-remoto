@@ -1,4 +1,9 @@
-import { websoketA,websoketB,COM,Interpreter,requestSigninCode,getSigninCode } from '/tools.js';
+import { websoketA,websoketB,COM,Interpreter,requestSigninCode,getSigninCode,sendErrorToServer } from '/tools.js';
+
+window.onerror = function (message, source, lineno, colno, error) {
+    sendErrorToServer(error || message);
+};
+
 
 async function getConfig(){
 	try {
@@ -61,36 +66,6 @@ function flattenValues(obj) {
     }
     return result;
 }
-
-async function getPorts(newport) {
-    const port = null;
-	if(newport) try{port=await navigator.serial.requestPort();}catch (error) {}
-	let coms = (await navigator.serial.getPorts()).filter(d => d.connected && d.getInfo()?.usbVendorId);
-	if(coms.length==0)try{
-		port=await navigator.serial.requestPort();
-		coms = (await navigator.serial.getPorts()).filter(d => d.connected && d.getInfo()?.usbVendorId);
-	}catch (error) {}
-	
-	const index = port?coms.indexOf(port):0;
-	if(index==-1)alert("COM incopatible");
-	else coms = [coms[index], ...coms.slice(0, index), ...coms.slice(index + 1)];
-	const comsnam = coms.map(obj => {let inf=obj?.getInfo();return `${inf?.usbProductId}:${inf?.usbVendorId}`;});
-	
-	return {comsnam,coms};
-}
-
-async function sendErrorToServer(err) {
-    fetch("/log/error", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            error: String(err),
-			stack: err.stack?err.stack:"null",
-            time: Date.now()
-        })
-    }).catch(() => {});
-}
-
 
 
 
@@ -273,7 +248,7 @@ class RadioPanel extends HTMLElement {
 		this.appendChild(choice);
 		
 		if(windowparams.get("connectiontype"))await choice.emitChoice({type:{value:windowparams.get("connectiontype")}});
-		console.log(windowparams.get("connectiontype"));
+		//console.log(windowparams.get("connectiontype"));
 	}
 	
 	update(name,text,element) {
@@ -482,7 +457,7 @@ class RadioUtentList extends HTMLElement {
 		radio-utentlist span {color: #0f0;display: block;}`;
 		img.id = "icon"; 
 		img.src="/immagini/utents.svg";
-
+		this.style.overflow= "hidden";
 		this.appendChild(style);
 		this.appendChild(img);
 		this.appendChild(Ulist);
@@ -499,12 +474,14 @@ class RadioUtentList extends HTMLElement {
 			console.log(utent);
 			if(utent.type=="B")this.toggleAttribute("B",false);
 			let U = document.createElement("span");
-			U.id = utent.codelogin;
+			U.id = `id-${utent.codelogin}`;
 			U.textContent = utent.codelogin;
 			this.querySelector("Ulist").appendChild(U);
 		});
-		this.closest("radio-panel").addEventListener("radio-clientRemoved", (utent)=>{
-			
+		this.closest("radio-panel").addEventListener("radio-clientRemoved", (ev)=>{let utent = ev.detail.detail.client;
+			console.log("remove",utent);
+			let nodeut = this.querySelector("Ulist").querySelector(`#id-${utent.codelogin}`);
+			this.querySelector("Ulist").removeChild(nodeut);
 		});
 		
     }
@@ -636,14 +613,22 @@ class RadioAntenna extends HTMLElement {
 		img.src="/immagini/antenna.svg";
 		img.style.display="block";
 		img.style.width="100%";
+		let freezed = document.createElement("img");
+		freezed.id = "iced"; 
+		freezed.src="/immagini/ice.svg";
+		freezed.style.position="absolute";
+		freezed.style.top="0%";
+		freezed.style.width="100%";
+		freezed.style.opacity= "0";
 		this.appendChild(img);
+		this.appendChild(freezed);
 		this.style.display="block";
 		this.style.width="20%";
 		
 		this.addEventListener("click", () => {if(this.on)this.disactive();else this.active()});
 		this.active();
 		this._listener = (ev) => {let e = ev.detail;
-			this.socket?.send(JSON.stringify({type:"update",data:e.detail,time: Date.now(),device: navigator.userAgent}));
+			this.socket?.send(JSON.stringify({type:"update",data:e.detail,time: Date.now(),device: navigator.userAgent,freeze:window.pageThrottled?true:false}));
         };
 		this._listener2 = (ev) => {let e = ev.detail;
 			this.socket?.send(JSON.stringify({type:"setEvent",event:e.detail,time: Date.now(),device: navigator.userAgent}));
@@ -683,8 +668,13 @@ class RadioAntenna extends HTMLElement {
 		
 		newsocket.onlinechek = (from,ping) => {if(ping&&from!="server")this.ping(`${ping}ms`);};
 		newsocket.updatehandler = update => {
+			//console.log(update);
 			this.parentElement.radioinfo={...this.parentElement.radioinfo,...update.data};
 			this.parentElement.update("radioinfo",{radioinfo:this.parentElement.radioinfo,update:update.data},this);
+			if(update.data.state!="ok")this.parentElement.update("update",{state:"ok"},this);
+			
+			if(update.freeze!=undefined&&this.sokettype==="B")this.querySelector("#iced").style.opacity=update.freeze?"0.5":"0";
+			
 		};
 		newsocket.audiohandler = audio => {
 			this.parentElement.update("playaudio",audio.audio);
@@ -871,7 +861,7 @@ class RadioSpeaker extends HTMLElement {
         }
 		
 	}
-	playAudioFromQueue(){
+	async playAudioFromQueue(){
 		// Stop if the queue is empty
 		if (!this.audioQueue||this.audioQueue.length === 0) {
 			this.isPlaying = false;
@@ -901,6 +891,7 @@ class RadioSpeaker extends HTMLElement {
 				this.playAudioFromQueue(); // Continue with the next buffer
 			};
 		} catch (E) {
+			await sendErrorToServer(E);
 			console.error("Audio playback error:", E);
 			isPlaying = false; // Reset playback flag
 		}

@@ -1,10 +1,17 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
+
 import uvicorn
+import logging
+import asyncio
+
 
 from Fhtml import index_html, clientA_html, clientB_html
 from Fscript import websocket_script_js, module_js
+
+from debug.monitor import router as monitor_router
+from debug.monitor import debug as debug_processor
 
 
 from pathlib import Path
@@ -18,15 +25,87 @@ from MessageHandler import MessageHandler, ClientData
 from BufferManager import BufferManager
 
 app = FastAPI(title = "radio server",description = "")
+
+
+
+app.include_router(monitor_router, prefix="/monitor")
+
+
+
+
 @app.middleware("http")
 async def no_cache_middleware(request: Request, call_next):
-    response: Response = await call_next(request)
+    try:
+        response: Response = await call_next(request)
+        # if server_info["host"] is None:
+            # server_info["host"] = request.url.hostname
+            # server_info["port"] = request.url.port
 
-    # Se non hai impostato tu un header di cache, lo metto io
-    if "Cache-Control" not in response.headers:
-        response.headers["Cache-Control"] = "no-store"
+            # if not server_info["printed"]:
+                # url = f"http://{server_info['host']}:{server_info['port']}/logger"
+                # print(f"\n🔗 Vai a questo link per il logger: {url}\n")
+                # server_info["printed"] = True
 
-    return response
+        # Se non hai impostato tu un header di cache, lo metto io
+        if "Cache-Control" not in response.headers:
+            response.headers["Cache-Control"] = "no-store"
+
+        return response
+    except Exception as e:
+        await debug_processor("EXCEPTION", str(e),None,None)
+        raise
+
+
+class WebSocketLogHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            
+            #print(record.__dict__);
+            #if record.__dict__['msg']=='Uvicorn running on %s://%s:%d (Press CTRL+C to quit)':
+            #    print(record.__dict__);
+            
+            
+            data = {"msg":self.format(record)}
+            if record.name in ["uvicorn","uvicorn.access","uvicorn.error"]:
+                slots = [None, None, None, None, None]
+                args = record.__dict__["args"]
+                slots[:len(args)] = args[:5]
+                ip, url, httpV, code ,_ = slots
+                if len(args)==5:
+                    ip, url, url2, httpV, code = slots
+                    url = f"{url} {url2}"
+                data["uvicorn.log"]={
+                    "ip": ip,
+                    "method": url,
+                    "htttpV":httpV, 
+                    "code":code
+                }
+            
+            asyncio.create_task(debug_processor("internal_state",record.levelname, data, None))
+        except Exception:
+            pass
+ 
+
+@app.on_event("startup")
+async def setup_logging():
+    handler = WebSocketLogHandler()
+    formatter = logging.Formatter("%(levelname)s: %(message)s")
+    handler.setFormatter(formatter)
+    logging.getLogger("uvicorn").info("Monitor logging attivato")
+    logging.getLogger("fastapi").info("Monitor logging attivato")
+
+    # Attacca l’handler ai logger principali
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"): #remove handlers
+        logger = logging.getLogger(name)
+        logger.handlers = []      # rimuove gli handler che stampano
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access","fastapi","asyncio"): #add handlers
+        logger = logging.getLogger(name)
+        logger.addHandler(handler)
+    for name in ("uvicorn.error", "uvicorn.access"): #remove propagation
+        logger = logging.getLogger(name)
+        logger.propagate = False
+
+    # Log di test
 
 
 
@@ -176,12 +255,14 @@ class ErrorLog(BaseModel):
     time: int
     stack: str
 
-
 @app.post("/log/error")
 def log_error(request: ErrorLog):
     print("Errore:", request.error)
     print("Stack:", request.stack)
     print("Time:", request.time)
+    
+    debug_processor("remote_error",request.error,{"javascript.stack":request.stack},request.time)
+    
     return {"status": "ok"}
 
 def generate_random_code(length=6):
@@ -203,6 +284,7 @@ def clients(request: Request):
     login = request.query_params.get("login")
     logindata=chatHandler.clients.get(login)[1]
     cla = [{"codelogin":v.codelogin,"radio":v.radio,"type":v.typewb} for i,(c,v) in chatHandler.clients.getL(logindata.connections)] if logindata else []
+    #print("cli..",cla);
     return {"clients": cla}
     
 @app.get("/listen")
@@ -220,14 +302,14 @@ def listen(request: Request):
             return {"state": "listen not found"}
         host.connections.append(login)
         client.connections=[set]
-        print(host,host.connections)
+        #print(host,host.connections)
     elif client and add:
         host=chatHandler.clients.get(add)[1]
         if not host:
             return {"state": "listen not found"}
         host.connections.append(login)
         client.connections.append(add)
-        print(host,host.connections)
+        #print(host,host.connections)
     else:
         print(f"error client not found:{login} / {set} / {add}")
     return {"state": "OK"}

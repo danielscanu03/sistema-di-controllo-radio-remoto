@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>FastAPI Event Monitor</title>
+<style>
+body {
+    font-family: monospace;
+    background: #111;
+    color: #eee;
+}
+ul-log {
+    display: block;
+    list-style: none;
+    padding: 0;
+}
+
+li-log {
+    display: block;
+    margin: 4px 0;
+    padding: 6px;
+    border-left: 4px solid #4caf50;
+    background: #222;
+    /*white-space: pre-wrap;  fondamentale per gli stack */
+}
+.type,.view{
+    color: #4caf50;
+    font-weight: bold;
+	display: inline-block;
+}
+#newelm {
+	color: #ff0000;
+}
+#numupdate {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+
+    width: 24px;
+    height: 24px;
+
+    background: orange;
+    color: white;
+    font-weight: bold;
+
+    border-radius: 50%;
+    font-size: 14px;
+
+    user-select: none;
+}
+#numupdate[invisible]{
+	display: none;
+}
+
+</style>
+</head>
+<body>
+
+<h1>FastAPI Event Monitor</h1>
+<li-log id="back"></li-log>
+<ul-log id="log"></ul-log>
+
+<script src="/monitor/monitorscript.js" type="module"></script>
+
+</body>
+</html>
