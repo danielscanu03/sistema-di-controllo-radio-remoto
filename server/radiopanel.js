@@ -194,7 +194,8 @@ class RadioPanel extends HTMLElement {
 				try{com = await getPorts();}catch (err){await sendErrorToServer(err);}
 				
 				let microphones = [];
-				try{microphones = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput").map(obj => obj.label);}catch (err){console.log("???");}
+				let mics = [];
+				try{mics=(await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput");microphones = mics.map(obj => obj.label);}catch (err){console.log("???");}
 				
 				const choice = document.createElement("radio-choice");
 				const advancedchoice = document.createElement("radio-choice");
@@ -222,7 +223,7 @@ class RadioPanel extends HTMLElement {
 				advancedchoice.setCurrentSelection(pickProps(this.jsonConfig.radio[value],["SerialSpeed","stopBits","parity","dataBits"]));
 				
 				choice.emitChoice=async (scelta) => {
-					this.settings = {...this.settings,...scelta,...advancedchoice.getCurrentSelection(),com};
+					this.settings = {...this.settings,...scelta,...advancedchoice.getCurrentSelection(),com,mics};
 					this.replaceChildren();
 					this.start();
 				};
@@ -568,10 +569,10 @@ class RadioMic extends HTMLElement {
 	async active(){
 		this.style.opacity= 1;
 		this.on=true;
-		const microphones = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput");
-		this.microphone = microphones[this.parentElement.settings.audioin.index];
+		const microphones = this.parentElement.settings.mics;
 		
-		this.stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: this.microphone.deviceId}});
+		this.microphone = microphones[this.parentElement.settings.audioin.index];
+		this.stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: { exact: this.microphone.deviceId }}});
 
 		
 		this.audioContext = new AudioContext({ sampleRate: this.parentElement.settings.sampleRate });
@@ -911,8 +912,6 @@ class RadioChoice extends HTMLElement {
 
 		Object.entries(this.items).forEach(([key, list], index) => {
 
-			// Ordina la lista delle opzioni
-			const sortedList = [...list].sort((a, b) => a.localeCompare(b));
 
 			// Cerca se esiste già il select
 			let scroll = choice.querySelector(`select[data-key="${key}"]`);
@@ -948,7 +947,7 @@ class RadioChoice extends HTMLElement {
 
 			// Aggiorna le opzioni SENZA duplicare
 			scroll.innerHTML = "";
-			sortedList.forEach(item => {
+			list.forEach(item => {
 				const el = document.createElement("option");
 				el.value = item;
 				el.textContent = item;
