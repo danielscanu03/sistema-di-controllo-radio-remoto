@@ -162,7 +162,7 @@ class RadioPanel extends HTMLElement {
 					//if(update.length!=0)console.log(update);
 					this.radioinfo={...this.radioinfo,...queue.format};
 					this.update("radioinfo",{radioinfo:this.radioinfo});
-					if(update.length!=0)this.update("update",this.radioinfo);
+					if(update.length!=0)this.update("update",this.radioinfo,this);
 				}
 				
 			};
@@ -253,7 +253,7 @@ class RadioPanel extends HTMLElement {
 	}
 	
 	update(name,text,element) {
-		//if(name=="clientAdded")console.log("dispach:",`radio-${name}`,text);
+		//if(name=="update")console.log("dispach:",`radio-${name}`,text,element);
 		this.dispatchEvent(new CustomEvent(`radio-${name}`, {detail:{
 			detail: text,
 			targetElement: element?element:this
@@ -321,7 +321,7 @@ class RadioBoard extends HTMLElement {
 			let el = event.target;
 			let type = el.getAttribute("type")?.split(",");
 			if(type&&type[0]=="update"){
-				this.closest("radio-panel")?.update("update",{[type[1]]:el.id});				
+				this.closest("radio-panel")?.update("update",{[type[1]]:el.id},this);				
 			}else this.closest("radio-panel")?.update("setEvent",el.id);
 		}));
     }
@@ -344,7 +344,7 @@ class DisplayFrequence extends HTMLElement {
 			  // Lower part clicked - decrement digit
 			  this.updateDigit(event.target, false);
 			}
-			this.closest("radio-panel")?.update("update",{[this.getAttribute("VFO")]:this.getfrequence()});
+			this.closest("radio-panel")?.update("update",{[this.getAttribute("VFO")]:this.getfrequence()},this);
 		  }
 		});
 		this.addEventListener("touchstart", async (event) => {try{
@@ -380,7 +380,7 @@ class DisplayFrequence extends HTMLElement {
 				// Swipe down - decrement digit
 				this.updateDigit(event.target, false);
 			  }
-			  this.closest("radio-panel")?.update("update",{[this.getAttribute("VFO")]:this.getfrequence()});
+			  this.closest("radio-panel")?.update("update",{[this.getAttribute("VFO")]:this.getfrequence()},this);
 			}
 			this.touchStartY = null; // Reset touchStartY
 		  }
@@ -669,9 +669,11 @@ class RadioAntenna extends HTMLElement {
 		
 		newsocket.onlinechek = (from,ping) => {if(ping&&from!="server")this.ping(`${ping}ms`);};
 		newsocket.updatehandler = update => {
-			//console.log(update);
-			this.parentElement.radioinfo={...this.parentElement.radioinfo,...update.data};
-			this.parentElement.update("radioinfo",{radioinfo:this.parentElement.radioinfo,update:update.data},this);
+			//console.log(update.data);
+			if(!("state" in update.data)){
+				this.parentElement.radioinfo={...this.parentElement.radioinfo,...update.data};
+				this.parentElement.update("radioinfo",{radioinfo:this.parentElement.radioinfo,update:update.data},this);
+			}
 			if(update.data.state!="ok")this.parentElement.update("update",{state:"ok"},this);
 			
 			if(update.freeze!=undefined&&this.sokettype==="B")this.querySelector("#iced").style.opacity=update.freeze?"0.5":"0";
@@ -720,7 +722,7 @@ class RadioAntenna extends HTMLElement {
 			Object.entries(clientAdded).forEach(([key,cli],index) => this.parentElement.update("clientAdded",{client:cli}));
 			Object.entries(clientRemoved).forEach(([key,cli],index) => this.parentElement.update("clientRemoved",{client:cli}));
 			
-			if(Object.entries(clientAdded).length!=0)this.closest("radio-panel")?.update("update",this.closest("radio-panel").querySelector("radio-info").radioinfo);
+			if(Object.entries(clientAdded).length!=0)this.closest("radio-panel")?.update("update",this.closest("radio-panel").querySelector("radio-info").radioinfo,this);
 			
 		}, 5000);
 		

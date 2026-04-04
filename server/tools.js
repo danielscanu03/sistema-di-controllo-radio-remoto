@@ -251,7 +251,7 @@ class websoketR extends WebSocket{
 		
 		if(alldata.type === 'pong'){
 			const elapsed = Date.now() - alldata.time;
-			console.log('Pong received from '+completed.from+', round-trip time: ' + elapsed + ' ms');
+			//console.log('Pong received from '+completed.from+', round-trip time: ' + elapsed + ' ms');
 			this.onlinechek?.(completed.from,elapsed);
 		} else if (alldata.type === 'ping') {
           // Respond with a pong message
@@ -419,7 +419,7 @@ class Interpreter{
 				let nnstatic = fx[0].filter(ff => fx[fx[0]]&&!buffer.update[ff]);
 				let updated = {};
 				fx[0].filter(ff => !fx[fx[0]]&&buffer.update[ff]).forEach(up => {
-					updated[up]=toIntArray(this.conversionbyteformat(up,buffer.update[up],information[up],uty.format[fx[0].indexOf(up)].length));
+					updated[up]=toIntArray(this.conversionbyteformat(type,up,buffer.update[up],information[up],uty.format[fx[0].indexOf(up)].length));
 				});
 				return {fixed:fx[1],format:uty.format,reformat:fx[0],entries:uty.entries,nnstatic,updated};
 			});
@@ -442,7 +442,7 @@ class Interpreter{
 	}
 	
 	
-	conversionbyteformat(key,value,information,lenght){
+	conversionbyteformat(type,key,value,information,lenght){
 		
 		if(information.type=="strint"){
 			
@@ -454,6 +454,12 @@ class Interpreter{
 		}else if(information.decode&&information.format){
 			
 			return information.format[information.decode.indexOf(value)];
+		}else if(information.decode&&information.setformat&&type=="set"){
+			
+			return information.setformat[information.decode.indexOf(value)];
+		}else if(information.decode&&information.answerformat&&type=="answer"){
+			
+			return information.answerformat[information.decode.indexOf(value)];
 		}
 		
 		console.log(key,value,information,lenght);
