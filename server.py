@@ -222,16 +222,39 @@ class ChatHandler(MessageHandler):
         print(f"Disconnected: {path}")
         await self.remove_client(websocket, path)
 
-
+    async def serverresponse(self,Json,wb,data):
+        
+        
+        if Json["request"] == "getclients":
+            cla = [{"codelogin":v.codelogin,"radio":v.radio,"type":v.typewb} for i,(c,v) in self.clients.getL(data.connections)] if data else []
+            
+            msg = json.dumps({"type": "server","data":cla})
+            
+            modified_message = {"from": "server","pack": "0","data": msg}
+            modified_message2 = {"from": "server","pack": "1","data": "end"}
+            await wb.send_text(json.dumps(modified_message))
+            await wb.send_text(json.dumps(modified_message2))
+            #print(Json,cla)
+        
+        
+        
+        
+        
+        
 
     async def onMessage(self, websocket: WebSocket, message: str, path: str, arg=None):
         # Recupera i dati associati al client
         data = self.get_data(websocket)
-
+        jsonmsg = json.loads(message)
+        if jsonmsg["type"] == "server":
+            await self.serverresponse(jsonmsg,websocket,data)
+            return
+        
         # Gestione lasting (simulazione di frameInfo->len)
         if data.lasting == 0:
             data.lasting = len(message)  # in C++ era frameInfo->len
         data.lasting -= len(message)
+        
 
         # Finale o meno
         data.final = data.lasting <= 0

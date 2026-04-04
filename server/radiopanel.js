@@ -685,6 +685,11 @@ class RadioAntenna extends HTMLElement {
 		newsocket.seteventhandler = set => {
 			this.parentElement.update("command",{command:set.event});
 		};
+		newsocket.serverhandler = request => {
+			
+			console.log(request);
+			this.clientsort(request.data);
+		};
 		newsocket.handlerclose = close => {
 			console.log(close);
 			this.disactive();
@@ -699,34 +704,42 @@ class RadioAntenna extends HTMLElement {
 		}
 		
 		this.connections = setInterval(async () => {
-			let newClients = (await getclients()).clients;
-			let new_list = {};
-			let old_list = {};
-			newClients?.forEach(c =>{new_list[c.codelogin]=c;});
-			this.clients?.forEach(o =>{old_list[o.codelogin]=o;});
-			let all_clients = {...old_list,...new_list};
-			let clientAdded = {...all_clients};
-			let clientRemoved = {...all_clients};
 			
-			Object.entries(all_clients).forEach(([key,cli],index) => {
-				Object.entries(new_list).forEach(([key2,cli2],index) => {
-					if(key==key2)delete clientRemoved[key];
-				});
-				Object.entries(old_list).forEach(([key2,cli2],index) => {
-					if(key==key2)delete clientAdded[key];
-				});
-			});
-			
-			//console.log(this.clients,newClients,clientAdded,clientRemoved,newClients?.some(o => o.codelogin === this.clients?.[0]?.codelogin)?true:false);
-			this.clients = newClients;
-			Object.entries(clientAdded).forEach(([key,cli],index) => this.parentElement.update("clientAdded",{client:cli}));
-			Object.entries(clientRemoved).forEach(([key,cli],index) => this.parentElement.update("clientRemoved",{client:cli}));
-			
-			if(Object.entries(clientAdded).length!=0)this.closest("radio-panel")?.update("update",this.closest("radio-panel").querySelector("radio-info").radioinfo,this);
-			
+			this.socket?.send(JSON.stringify({
+				type:"server",
+				request:"getclients"
+			}));
 		}, 5000);
 		
 	}
+	
+	clientsort(newClients){
+		let new_list = {};
+		let old_list = {};
+		newClients?.forEach(c =>{new_list[c.codelogin]=c;});
+		this.clients?.forEach(o =>{old_list[o.codelogin]=o;});
+		let all_clients = {...old_list,...new_list};
+		let clientAdded = {...all_clients};
+		let clientRemoved = {...all_clients};
+		
+		Object.entries(all_clients).forEach(([key,cli],index) => {
+			Object.entries(new_list).forEach(([key2,cli2],index) => {
+				if(key==key2)delete clientRemoved[key];
+			});
+			Object.entries(old_list).forEach(([key2,cli2],index) => {
+				if(key==key2)delete clientAdded[key];
+			});
+		});
+		
+		//console.log(this.clients,newClients,clientAdded,clientRemoved,newClients?.some(o => o.codelogin === this.clients?.[0]?.codelogin)?true:false);
+		this.clients = newClients;
+		Object.entries(clientAdded).forEach(([key,cli],index) => this.parentElement.update("clientAdded",{client:cli}));
+		Object.entries(clientRemoved).forEach(([key,cli],index) => this.parentElement.update("clientRemoved",{client:cli}));
+		
+		if(Object.entries(clientAdded).length!=0)this.closest("radio-panel")?.update("update",this.closest("radio-panel").querySelector("radio-info").radioinfo,this);
+	}
+	
+	
 	ping(text) {
 		let label = this.querySelector(".label-above");
 

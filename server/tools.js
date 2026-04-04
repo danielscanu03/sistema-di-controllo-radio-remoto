@@ -266,6 +266,8 @@ class websoketR extends WebSocket{
           this.onlinechek?.(completed.from,null);
         } else if (alldata.type === 'message') {
 			this.msghandler?.(alldata);
+		} else if (alldata.type === 'server') {
+			this.serverhandler?.(alldata);
 		} else if (alldata.type === 'command') {
 			this.commandhandler?.(alldata);
 		} else if (alldata.type === 'update') {
