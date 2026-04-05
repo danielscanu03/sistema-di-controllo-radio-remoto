@@ -169,6 +169,7 @@ class RadioPanel extends HTMLElement {
 			let port = new COM(this.settings.com.coms[this.settings.COM.index],flattenValues(this.settings));
 			port.interpreter = (bytes) => interpreter.check(bytes,()=>port.drain(bytes));
 			port.traslate = (pack) => interpreter.traslate(pack.format,pack);
+			//console.log(port);
 			await port.open();
 			this.addEventListener("radio-command", (ev) => {let command = ev.detail;
 				port.send({type:"pack",command:command.detail.command,format:"set"});
@@ -272,7 +273,6 @@ class RadioBoard extends HTMLElement {
 	async connectedCallback() {
         const html = await fetch("/radioboard.html").then(r => r.text());
         this.innerHTML =  `${html}`;
-		
 		this._listener = (ev) => {let e = ev.detail;
             this.querySelectorAll("display-frequence").forEach(el => {
 				if(e.detail.radioinfo[el.getAttribute("VFO")])el.updatefrequence(e.detail.radioinfo[el.getAttribute("VFO")]);
@@ -280,8 +280,10 @@ class RadioBoard extends HTMLElement {
 			this.querySelectorAll("radio-indicator").forEach(el => {
 				
 				const ind = el.getAttribute("ind");
+				//console.log(e.detail,ind,e.detail.radioinfo[ind]);
 				if(e.detail.radioinfo[ind]){
 					el.querySelectorAll("span").forEach(elm => {
+					//console.log(e.detail,elm.getAttribute("mode"));
 					if(elm.getAttribute("mode")?.split(",").includes(e.detail.radioinfo[ind])){
 						elm.style.color="#0f0";
 						elm.innerHTML=e.detail.radioinfo[ind];
@@ -292,7 +294,7 @@ class RadioBoard extends HTMLElement {
 						elm.style.color="#555";
 					}
 					});
-				}
+				}else el.querySelectorAll("span").forEach(elm => {elm.style.color="#555";});
 			});
 			//updatefrequence()
         };
@@ -307,13 +309,23 @@ class RadioBoard extends HTMLElement {
 				return;
 			}
 			let config = radiopanel.jsonConfig.radio[radiopanel.settings.radio.value];
-			//console.log(config);
+			console.log(config,this.querySelectorAll("radio-indicator"));
+			let buttons={}
 			this.querySelectorAll("button").forEach(el => {
 				let type = el.getAttribute("type")?.split(",");
-				if(type&&type[0]=="update"){
-					el.className="";
-				}else el.className=config.commandlist[el.id]?"":"inattivo";
-				
+				if(!type) el.className=config.commandlist[el.id]?"":"inattivo";
+				else{
+					if(!buttons[type[1]])buttons[type[1]]=[];
+					buttons[type[1]].push(el)
+				}
+			});
+			Object.entries(buttons).forEach(([key,list],i) => {
+				list.forEach((bt,i2) => {
+					bt.innerHTML=config.information[key].decode[i2];
+					bt.id=config.information[key].decode[i2];
+					bt.className="";
+					if(i2>=config.information[key].decode.length)bt.style.display="none";
+				});
 			});
 		};
 		this.buttoncontrol();
@@ -686,8 +698,6 @@ class RadioAntenna extends HTMLElement {
 			this.parentElement.update("command",{command:set.event});
 		};
 		newsocket.serverhandler = request => {
-			
-			console.log(request);
 			this.clientsort(request.data);
 		};
 		newsocket.handlerclose = close => {
@@ -868,19 +878,21 @@ class RadioSpeaker extends HTMLElement {
 	}
 	play(paket){
 		if(!this.audioQueue)return;
+		if(this.getQueueTime()>2)this.audioQueue=[];
+		if(this.getQueueTime()>0.5)paket=paket.filter((A,i) => i%20!=0);
 		const audioBuffer = this.audioContext.createBuffer(1, paket.length, this.audioContext.sampleRate);
 		audioBuffer.copyToChannel(paket, 0);
-		if(this.getQueueTime()>2)this.audioQueue=[];
 		this.audioQueue.push(audioBuffer);
 		if (!this.isPlaying) {
+			this.timestart = this.audioContext.currentTime;
             this.playAudioFromQueue();
         }
-		
 	}
 	async playAudioFromQueue(){
 		// Stop if the queue is empty
 		if (!this.audioQueue||this.audioQueue.length === 0) {
 			this.isPlaying = false;
+			this.timestart = null;
 			return;
 		}
 
@@ -895,20 +907,39 @@ class RadioSpeaker extends HTMLElement {
 			source.buffer = audioBuffer;
 			
 			if (!this.gainNode) {
+				const hp = this.audioContext.createBiquadFilter();
+				hp.type = "highpass";
+				hp.frequency.value = 300;   // frequenza di taglio
+				hp.Q.value = 1;             // risonanza
+				const bp = this.audioContext.createBiquadFilter();
+				bp.type = "basspass";
+				bp.frequency.value = 1000;   // frequenza di taglio
+				bp.Q.value = 0.7;             // risonanza
+				
+				hp.connect(this.audioContext.destination);
+				bp.connect(hp);
 				this.gainNode = this.audioContext.createGain();
 				this.gainNode.gain.value = this.volume ?? 1; // volume di default
-				this.gainNode.connect(this.audioContext.destination);
+				this.gainNode.connect(bp);
 			}
 			source.connect(this.gainNode);
-			source.start();
+			
+			if(!this.timestart)source.start();
+			else{
+				source.start(this.timestart);
+				this.timestart+=audioBuffer.duration;
+			}
+			//this.timestart+=audioBuffer.duration*1000;
 
 			source.onended = () => {
 				source.disconnect(); // Clean up resources
 				this.playAudioFromQueue(); // Continue with the next buffer
 			};
+			if(this.audioQueue.length>1)this.playAudioFromQueue(); // Continue with the next buffer
 		} catch (E) {
 			await sendErrorToServer(E);
 			console.error("Audio playback error:", E);
+			this.timestart = null;
 			isPlaying = false; // Reset playback flag
 		}
 	}

@@ -370,7 +370,7 @@ class Interpreter{
 			if (!arrayStartsWith(buffer, awaitStart)) {reset();return;}
 		}
 		if (awaitEnd) {
-			if(awaitEnd.length+awaitStart?awaitStart.length:0>buffer.length)return;
+			if(awaitEnd.length+(awaitStart?awaitStart.length:0)>buffer.length)return;
 			if (!arrayEndsWith(buffer, awaitEnd)) {return;}
 		}
 		
@@ -416,6 +416,9 @@ class Interpreter{
 			
 			let utilityformat = this.findStruct(buffer.update,commands,information).filter(c => c.type==type);
 			
+			
+			
+			
 			utilityformat=utilityformat.map(uty => {
 				let fx = this.getFixed(uty.format,uty.command,information);
 				let nnstatic = fx[0].filter(ff => fx[fx[0]]&&!buffer.update[ff]);
@@ -459,9 +462,14 @@ class Interpreter{
 		}else if(information.decode&&information.setformat&&type=="set"){
 			
 			return information.setformat[information.decode.indexOf(value)];
-		}else if(information.decode&&information.answerformat&&type=="answer"){
+		}else if(information.decode&&information.ansformat&&type=="answer"){
 			
-			return information.answerformat[information.decode.indexOf(value)];
+			return information.ansformat[information.decode.indexOf(value)];
+		}else if(information.encodeType=="BCD5"){
+			
+			return encodeBCD5(value);
+		}else if(information.preset){
+			return information.preset;
 		}
 		
 		console.log(key,value,information,lenght);
@@ -474,8 +482,8 @@ class Interpreter{
 		let reformat = format.map(parm =>{return {code:parm.param,format:command[parm.param]?command[parm.param]:parm.param,reformat:command[parm.param]?information[command[parm.param]]:information[parm.param]}}).map(parm => {
 			retF = [...retF,parm.format];
 			let val = null;
-			if(parm.reformat.preset)val = toIntArray(parm.reformat.preset);
-			if(parm.reformat.format=="command")val = toIntArray(command["cmd"]);
+			if(parm.reformat?.preset)val = toIntArray(parm.reformat.preset);
+			if(parm.reformat?.format=="command")val = toIntArray(command["cmd"]);
 			//return {...parm,val:val};
 			if(val)return {[parm.format]:val};
 		}).filter(parm => parm).forEach(parm => {ret={...ret,...parm};});
@@ -485,39 +493,43 @@ class Interpreter{
 	}
 	findStruct(buffer,commandlist,information){
 		let ret = [];
-		
 		Object.entries(commandlist).forEach(([key,cmd],index) => {
 			if(Array.isArray(buffer)){
-				let set = null;
-				try{set=this.checkstruct(buffer,cmd.setformat);}catch(err){}
-				let read = null;
-				try{read=this.checkstruct(buffer,cmd.readformat);}catch(err){}
-				let answer = null;
-				try{answer=this.checkstruct(buffer,cmd.answerformat);}catch(err){}
-				if(set)set=validateformat("set",set,commandlist[key],information);
-				if(read)read=validateformat("read",read,commandlist[key],information);
-				if(answer)answer=validateformat("answer",answer,commandlist[key],information);
 				
-				//if(set||read||answer)console.log("cmd",key," set:",set?true:false," read:",read?true:false," answer:",answer?true:false);
+				let process = (type,format,loop) => {
+					if(format.length!=0&&Array.isArray(format[0]))return format.forEach(fr => loop(type,fr,loop));
+					let form = null;
+					try{form=this.checkstruct(buffer,format);}catch(err){}
+					if(form)form=validateformat(type,form,commandlist[key],information);
+					if(form&&Object.entries(form).length!=0)ret.push({type,format:form});
+				};
 				
-				if(set)ret.push({type:"set",format:set});
-				if(read)ret.push({type:"read",format:read});
-				if(answer)ret.push({type:"answer",format:answer});
+				process("set",cmd.setformat,process);
+				process("read",cmd.readformat,process);
+				process("answer",cmd.answerformat,process);
 			}else{
 				
-				let set = null;
-				try{set=cmd.setformat.map(cc => cmd[cc.param]?cmd[cc.param]:cc.param)}catch(err){}
-				let nset = Object.entries(buffer).filter(([key,cmd],index) => set?.includes(key)).length;
-				if(nset!=0)ret.push({type:"set",format:cmd.setformat,entries:nset,command:cmd});
-				let read = null;
-				try{read=cmd.readformat.map(cc => cmd[cc.param]?cmd[cc.param]:cc.param)}catch(err){}
-				let nread = Object.entries(buffer).filter(([key,cmd],index) => read?.includes(key)).length;
-				if(nread!=0)ret.push({type:"read",format:cmd.readformat,entries:nread,command:cmd});
-				let answer = null;
-				try{answer=cmd.answerformat.map(cc => cmd[cc.param]?cmd[cc.param]:cc.param)}catch(err){}
-				let nanswer = Object.entries(buffer).filter(([key,cmd],index) => answer?.includes(key)).length;
-				if(nanswer!=0)ret.push({type:"answer",format:cmd.answerformat,entries:nanswer,command:cmd});
+				let process = (type,format,loop) => {
+					if(format.length!=0&&Array.isArray(format[0]))return format.forEach(fr => loop(type,fr,loop));
+					let form = null;
+					let form2 = {};
+					try{form=format.map(cc => cmd[cc.param]?cmd[cc.param]:cc.param)}catch(err){}
+					try{format.forEach(cc => {form2[cmd[cc.param]?cmd[cc.param]:cc.param]=cc.length})}catch(err){}
+					let updated = Object.entries(buffer).filter(([key,cmd],index) => form?.includes(key)).map(up => {
+						//console.log(up,this.conversionbyteformat(type,up[0],up[1],information[up[0]],form2[up[0]]));
+						let val = toIntArray(this.conversionbyteformat(type,up[0],up[1],information[up[0]],form2[up[0]]));
+						if(!val)console.log(type,up[0],up[1],information[up[0]],form2[up[0]]);
+						return {val,length:form2[up[0]]};
+					});
+					let err = updated.filter(up => !up||up.val.length!=up.length).length;
+					//console.log(form,format,buffer,updated);
+					let nset = updated.length;
+					if(nset!=0&&err==0)ret.push({type,format,entries:nset,command:cmd});
+				};
 				
+				process("set",cmd.setformat,process);
+				process("read",cmd.readformat,process);
+				process("answer",cmd.answerformat,process);
 			}
 		});
 		return ret;
@@ -577,11 +589,12 @@ function validateformat(type,formatted,commandlist,information){
 	Object.entries(formatted).forEach(([key, list],index) => {
 		let infkey = commandlist[key];
 		if(!ret)return null;
+		if(key === "undefined")return null;
 		if(infkey&&information[infkey]){
-			if(information[infkey]?.format=="command"){
+			if(information[infkey].preset)if(!arraysEqual(list,toIntArray(information[infkey]?.preset)))ret = null;
+			if(information[infkey]?.must==""){
+			}else if(information[infkey]?.format=="command"){
 				if(!arraysEqual(list,toIntArray(commandlist["cmd"])))ret = null;
-			}else if(information[infkey]?.preset){
-				if(!arraysEqual(list,toIntArray(information[infkey]?.preset)))ret = null;
 			}else if(information[infkey]?.decode&&information[infkey]?.format){
 				let forms = information[infkey].format.map((f,index) => {return{index:index,val:toIntArray(f)}}).filter(f => arraysEqual(f.val,list));
 				if(forms.length!=0)ret[infkey?infkey:key]=information[infkey].decode[forms[0].index];else ret=null;
@@ -597,12 +610,37 @@ function validateformat(type,formatted,commandlist,information){
 			}else if(information[infkey]?.type=="strint"){
 				let varb = list.map(car => String.fromCharCode(car)).join("");
 				if (varb >= information[infkey].format[0] && varb <= information[infkey].format[1])ret[infkey?infkey:key]=Number(varb);else ret=null;
+			}else if(information[infkey]?.decodeType=="BCD5"){
+				let varb = decodeBCD5(list);
+				if(information[infkey].format){if (varb >= information[infkey].format[0] && varb <= information[infkey].format[1])ret[infkey?infkey:key]=Number(varb);else ret=null;}
+				else ret[infkey?infkey:key]=varb;
 			}else ret[infkey?infkey:key]=list;
 		}
 	});
 	return ret;
 }
+function decodeBCD5(bytes) {
+    let result = "";
+    for (const b of bytes) {
+        const hi = (b >> 4) & 0x0F;
+        const lo = b & 0x0F;
+        result = hi.toString() + lo.toString() + result;
+    }
+    return parseInt(result);
+}
+function encodeBCD5(freq) {
+    // freq deve essere un numero, es: 7039000
+    let s = freq.toString().padStart(10, "0"); // 10 cifre per 5 byte BCD
+    const bytes = [];
 
+    for (let i = 0; i < 10; i += 2) {
+        const hi = parseInt(s[i], 10);
+        const lo = parseInt(s[i + 1], 10);
+        bytes.push((hi << 4) | lo);
+    }
+
+    return bytes.reverse();
+}
 
 class COM{
 	constructor(Port,Options) {
@@ -617,6 +655,7 @@ class COM{
 		this.lock=true;
 	}
 	async open(){
+		//console.log("open...",this.port,this.optionsport);
 		if(!this.port)return;
 		await this.port.open(this.optionsport);
 		this.port.readable.pipeTo(new WritableStream({write: (bytes) => {
@@ -644,11 +683,13 @@ class COM{
 		this.buff=this.buff.slice(bytes.length);
 	}
 	write(data) {
-        if (!data) return;
-        this.queue.push(data);
+        if (!data||Array.isArray(data)&&data.length==0) return;
+		if(Array.isArray(data)&&Array.isArray(data[0])) data.forEach(dataio => this.queue.push(dataio));
+        else this.queue.push(data);
     }
 	async _processR() {
-		if(this.options.loopreq)this.write(toIntArray(this.options.loopreq));
+		if(!this.options.loopreq)return;
+		this.write(toIntArray(this.options.loopreq));
 	}
 	async _processQueue() {
         if (this.isWriting) return;      // già in scrittura
@@ -662,17 +703,13 @@ class COM{
 			this.writer = this.port.writable.getWriter();
 			this.lock=false;
 		}
-		
         this.isWriting = true;
-
         const msg = this.queue.shift();  // prendi il primo messaggio
-
         try {
             await this.writer.write(new Uint8Array(msg));
         } catch (e) {
             console.error("Errore scrittura seriale:", e);
         }
-
         this.isWriting = false;
     }
 	async close() {
@@ -713,7 +750,10 @@ function arrayEndsWith(buf, seq) {
 }
 
 function toIntArray(x) {
-    if (Array.isArray(x)) return x.map(n => Number(n));
+    if (Array.isArray(x)) return x.map(n => {
+		if(Array.isArray(n))return toIntArray(n);
+		return Number(n);
+	});
     if (typeof x === "string") return [...x].map(ch => ch.charCodeAt(0));
     return null;
 }
