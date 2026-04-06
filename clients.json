@@ -1,0 +1,92 @@
+{
+    "9L58XO": {
+        "settedusername": "IS0IYI",
+        "expires_at": 1775598361.2667668,
+        "sessions": {
+            "B4LNCD": {
+                "username": "127.0.0.1:51191/9L58XO-B4LNCD",
+                "codelogin": "9L58XO-B4LNCD",
+                "isConnected": true,
+                "typewb": "A"
+            },
+            "SBGHTX": {
+                "username": "127.0.0.1:60709/9L58XO-SBGHTX",
+                "codelogin": "9L58XO-SBGHTX",
+                "isConnected": true,
+                "typewb": "B"
+            },
+            "SB4Q2O": {
+                "username": "127.0.0.1:63730/9L58XO-SB4Q2O",
+                "codelogin": "9L58XO-SB4Q2O",
+                "isConnected": true,
+                "typewb": "A"
+            },
+            "MXGBGV": {
+                "username": "127.0.0.1:62030/9L58XO-MXGBGV",
+                "codelogin": "9L58XO-MXGBGV",
+                "isConnected": true,
+                "typewb": "A"
+            },
+            "HG4LCI": {
+                "username": "127.0.0.1:58316/9L58XO-HG4LCI",
+                "codelogin": "9L58XO-HG4LCI",
+                "isConnected": true,
+                "typewb": "A"
+            },
+            "566262": {
+                "username": "127.0.0.1:51131/9L58XO-566262",
+                "codelogin": "9L58XO-566262",
+                "isConnected": true,
+                "typewb": "A"
+            },
+            "Z6KMLI": {
+                "username": "127.0.0.1:65035/9L58XO-Z6KMLI",
+                "codelogin": "9L58XO-Z6KMLI",
+                "isConnected": true,
+                "typewb": "A"
+            },
+            "YQU79F": {
+                "username": "127.0.0.1:52634/9L58XO-YQU79F",
+                "codelogin": "9L58XO-YQU79F",
+                "isConnected": true,
+                "typewb": "B"
+            },
+            "QQPMDG": {
+                "username": "127.0.0.1:55610/9L58XO-QQPMDG",
+                "codelogin": "9L58XO-QQPMDG",
+                "isConnected": true,
+                "typewb": "A"
+            },
+            "N0T72U": {
+                "username": "127.0.0.1:60829/9L58XO-N0T72U",
+                "codelogin": "9L58XO-N0T72U",
+                "isConnected": true,
+                "typewb": "B"
+            },
+            "RZ8W6Q": {
+                "username": "127.0.0.1:54037/9L58XO-RZ8W6Q",
+                "codelogin": "9L58XO-RZ8W6Q",
+                "isConnected": true,
+                "typewb": "A"
+            },
+            "46TRF1": {
+                "username": "127.0.0.1:63812/9L58XO-46TRF1",
+                "codelogin": "9L58XO-46TRF1",
+                "isConnected": true,
+                "typewb": "B"
+            },
+            "OOVLPS": {
+                "username": "127.0.0.1:56417/9L58XO-OOVLPS",
+                "codelogin": "9L58XO-OOVLPS",
+                "isConnected": true,
+                "typewb": "A"
+            },
+            "HNTEM6": {
+                "username": "127.0.0.1:59059/9L58XO-HNTEM6",
+                "codelogin": "9L58XO-HNTEM6",
+                "isConnected": true,
+                "typewb": "B"
+            }
+        }
+    }
+}

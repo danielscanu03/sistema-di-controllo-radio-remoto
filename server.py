@@ -193,27 +193,14 @@ class ChatHandler(MessageHandler):
         default_data.typewb = "A" if path == "/websocketA" else "B"
         print(default_data.getcode())
         self.clients.add(websocket, default_data)
-        if path == "/websocketA":
-            self.clientAs.append((websocket, default_data))
-            #default_data.connections.append("B")
-        else:
-            self.clientBs.append((websocket, default_data))
-            #default_data.connections.append("A")
         print(f"Client connected to {path}: {client_ip}")
-
         # puoi salvare il websocket in una lista se vuoi broadcast
     async def remove_client(self,websocket: WebSocket, webSocketPath: str):
-        clients = self.clientAs if webSocketPath == "/websocketA" else self.clientBs
         # trova e rimuove il client
         
         removed = self.clients.disconnect(websocket)
         print(f"client removed {removed[1].username}")
-        
-        for (i,item),sub in [(item,sub) for sub in [self.clientAs,self.clientBs] for item in enumerate(sub)]:
-            (ws, data) = item
-            if ws == websocket:
-                sub.pop(i)
-                print(f"Client disconnected from {webSocketPath}: {data.username}")
+
             
             
             
@@ -226,7 +213,7 @@ class ChatHandler(MessageHandler):
         
         
         if Json["request"] == "getclients":
-            cla = [{"codelogin":v.codelogin,"radio":v.radio,"type":v.typewb} for i,(c,v) in self.clients.getL(data.connections)] if data else []
+            cla = [{"codelogin":v.codelogin,"radio":v.radio,"type":v.typewb,"username":v.settedusername} for i,(c,v) in self.clients.getL(data.connections)] if data else []
             
             msg = json.dumps({"type": "server","data":cla})
             
@@ -277,14 +264,16 @@ class ErrorLog(BaseModel):
     error: str
     time: int
     stack: str
+class DataLog(BaseModel):
+    model_config = {'extra': 'allow'}
 
 @app.post("/log/error")
-async def log_error(request: ErrorLog):
-    print("Errore:", request.error)
-    print("Stack:", request.stack)
-    print("Time:", request.time)
+async def log_error(data: ErrorLog, request: Request):
+    print("Errore:", data.error)
+    print("Stack:", data.stack)
+    print("Time:", data.time)
     
-    await debug_processor("remote_error",request.error,{"javascript.stack":request.stack},request.time)
+    await debug_processor("remote_error",data.error,{"javascript.stack":data.stack},data.time)
     
     return {"status": "ok"}
 
@@ -295,18 +284,46 @@ def generate_random_code(length=6):
 @app.get("/signin")
 def signin():
     code = generate_random_code()
-    return {"code": code}
+    code2 = generate_random_code()
+    return {"code": code,"session":code2}
+@app.get("/login")
+def signin(request: Request):
+    login = request.query_params.get("login")
+    username = request.query_params.get("username")
+    code = generate_random_code()
+    if login and username:
+        logindata=chatHandler.clients.get(login)[1]
+        if not logindata:
+            logindata=ClientData("", 0, False)
+            logindata.codelogin = f"{login}-{code}"
+        logindata.settedusername=username
+        logindata.save()
+    return {"session": code}
     
 @app.get("/hosts")
 def hosts():
-    cla = [{"codelogin":v.codelogin,"radio":v.radio} for i,(c,v) in chatHandler.clients.getL("A")]
+    cla = [{"codelogin":v.codelogin,"radio":v.radio,"username":v.settedusername} for i,(c,v) in chatHandler.clients.getL("A")]
     return {"hosts": cla}
+@app.post("/setinfo")
+def setinfo(data: DataLog, request: Request):
+    login = request.query_params.get("login")
+    logindata=chatHandler.clients.get(login)[1]
+    
+    
+    if 'radio' in data.data:
+        logindata.radio=data.data['radio']
+    if 'username' in data.data:
+        logindata.settedusername=data.data['username']
+    
+    
+    print("set",data.data,login);
+    return {"status": "ok"}
     
 @app.get("/clients")
 def clients(request: Request):
     login = request.query_params.get("login")
     logindata=chatHandler.clients.get(login)[1]
-    cla = [{"codelogin":v.codelogin,"radio":v.radio,"type":v.typewb} for i,(c,v) in chatHandler.clients.getL(logindata.connections)] if logindata else []
+    cla = [{"codelogin":v.codelogin,"radio":v.radio,"type":v.typewb,"username":v.settedusername} for i,(c,v) in chatHandler.clients.getL(logindata.connections)] if logindata else []
     #print("cli..",cla);
     return {"clients": cla}
     
@@ -323,15 +340,15 @@ def listen(request: Request):
         host=chatHandler.clients.get(set)[1]
         if not host:
             return {"state": "listen not found"}
-        host.connections.append(login)
+        host.connect(login)
         client.connections=[set]
         #print(host,host.connections)
     elif client and add:
         host=chatHandler.clients.get(add)[1]
         if not host:
             return {"state": "listen not found"}
-        host.connections.append(login)
-        client.connections.append(add)
+        host.connect(login)
+        client.connect(add)
         #print(host,host.connections)
     else:
         print(f"error client not found:{login} / {set} / {add}")

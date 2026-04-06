@@ -1,22 +1,21 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-import time
-import json
+import json, time, os
 
 from BufferManager import BufferManager
+
 
 class ClientData:
     def __init__(self, username="", size=0, connected=True):
         self.username = username
+        self.settedusername = None
         self.lastMessageSize = size
         self.isConnected = connected
         self.codelogin = None
         self.connections = []
         self.typewb = ""
         self.radio = ""
-        
         self.clear()
     def getcode(self):
-        
         sep = self.codelogin.find('-') if self.codelogin else None
         return (self.codelogin[:sep],self.codelogin[sep+1:]) if sep else None
         
@@ -42,6 +41,63 @@ class ClientData:
         self.typeValue = ""
         self.alength = -1
         return self
+    def to_dict(self,populate=None):
+        if not populate:
+            return {
+                "settedusername": self.settedusername,
+                "expires_at": self.expires_at,
+                "sessions":{f"{self.getcode()[1]}":{
+                    "username": self.username,
+                    "codelogin": self.codelogin,
+                    "isConnected": self.isConnected,
+                    "typewb":self.typewb
+                }}
+            }
+        self.settedusername=self.settedusername if self.settedusername else populate["settedusername"]
+        populate["settedusername"]=self.settedusername
+        populate["expires_at"]= self.expires_at
+        if self.isConnected:
+            populate["sessions"][self.getcode()[1]]={
+                "username": self.username,
+                "codelogin": self.codelogin,
+                "isConnected": self.isConnected,
+                "typewb":self.typewb
+            }
+        return populate
+        
+    def save(self, path="clients.json"):
+        if not self.codelogin:
+            return
+        self.expires_at = time.time() + 3600 * 24
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                try:
+                    db = json.load(f)
+                except Exception:
+                    db = {}
+        else:
+            db = {}
+        #print(db,f"-{self.username}-")
+        # if self.getcode()[0] in db and "settedusername" in db[self.getcode()[0]] and not self.settedusername:
+            # print("???",self.settedusername,db[self.getcode()[0]])
+            # self.settedusername=db[self.getcode()[0]]["settedusername"]
+        db[self.getcode()[0]] = self.to_dict(db[self.getcode()[0]] if self.getcode()[0] in db else None)
+        with open(path, "w") as f:
+            json.dump(db, f, indent=4)
+        self.cleanup_expired()
+    def cleanup_expired(self,path="clients.json"):
+        if not os.path.exists(path):
+            return
+
+        with open(path, "r") as f:
+            db = json.load(f)
+        
+        now = time.time()
+        newdb = {k: v for k, v in db.items() if v.get("expires_at", 0) > now}
+
+        with open(path, "w") as f:
+            json.dump(newdb, f, indent=4)
+
 
 class ClientManager():
     def __init__(self):
@@ -49,6 +105,7 @@ class ClientManager():
         
     def add(self,websocket: WebSocket, default_data: ClientData):
         self.clients.append((websocket,default_data))
+        default_data.save()
     
     def remove(self,element) -> tuple[WebSocket, ClientData]:
         i,(wb,cli)=self.getI(element)
@@ -96,7 +153,8 @@ class ClientManager():
             for i2,conn in enumerate(cli.connections):
                 if conn==clientdata.codelogin:
                     cli.connections.pop(i2)
-                    
+        clientdata.isConnected=False
+        clientdata.save()
         return self.remove(clientdata)
 
 class MessageHandler:

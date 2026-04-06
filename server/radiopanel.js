@@ -227,6 +227,13 @@ class RadioPanel extends HTMLElement {
 					this.settings = {...this.settings,...scelta,...advancedchoice.getCurrentSelection(),com,mics};
 					this.replaceChildren();
 					this.start();
+					fetch("/setinfo?login="+getSigninCode(), {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							data:{radio: scelta.radio.value}
+						})
+					});
 				};
 				//let web = new websoketA();
 			}
@@ -235,7 +242,10 @@ class RadioPanel extends HTMLElement {
 				const choice = document.createElement("radio-choice");
 				let hosts = await getHosts()
 				console.log(hosts.hosts);
-				choice.items = {host:hosts.hosts.map(e => `${e.codelogin} ${e.radio}`)};
+				let hostsma = hosts.hosts.map(e => `${e.username} ${e.radio}`);
+				let counter = {};
+				let uniqueList = hostsma.map(item => {if (!counter[item]) {counter[item] = 1;return item;} else {counter[item]++;return `${item} (${counter[item]})`;}});
+				choice.items = {host:uniqueList};
 				choice.emitChoice= async (scelta) => {
 					this.remoteradio=hosts.hosts[scelta.host.index].codelogin
 					this.replaceChildren();
@@ -243,6 +253,7 @@ class RadioPanel extends HTMLElement {
 					
 				};
 				this.appendChild(choice);
+				if(windowparams.get("host")&&windowparams.get("host") in choice.items.host){await choice.emitChoice({host:{value:windowparams.get("host")}});}
 
 				//let web = new websoketB();
 			}
@@ -488,7 +499,7 @@ class RadioUtentList extends HTMLElement {
 			if(utent.type=="B")this.toggleAttribute("B",false);
 			let U = document.createElement("span");
 			U.id = `id-${utent.codelogin}`;
-			U.textContent = utent.codelogin;
+			U.textContent = utent.username;
 			this.querySelector("Ulist").appendChild(U);
 		});
 		this.closest("radio-panel").addEventListener("radio-clientRemoved", (ev)=>{let utent = ev.detail.detail.client;

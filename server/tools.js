@@ -43,7 +43,7 @@ export async function getPorts(newport) {
 	return {comsnam,coms};
 }
 export async function sendErrorToServer(err) {
-    fetch("/log/error", {
+    fetch("/log/error?login="+getSigninCode(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -56,50 +56,55 @@ export async function sendErrorToServer(err) {
 
 
 
-export async function requestSigninCode(timeout = 5000) {
+export async function requestSigninCode() {
     // 1) Se esiste già in cache, lo ritorno subito
-    const cached = localStorage.getItem("signin_code");
+    let cached = localStorage.getItem("signin_code");
+    let cacheduser = localStorage.getItem("signin_username");
 	let scached = sessionStorage.getItem("signin_code");
 	
-	if (!scached) {
-		sessionStorage.setItem("session_code", generateSessionCode());
-		scached = sessionStorage.getItem("session_code");
+	
+	const url = new URL(window.location);
+	const existed = url.searchParams.has("resetusername");
+	if(existed){
+		url.searchParams.delete("resetusername");
+		window.history.replaceState({}, "", url);
+		cacheduser=null;
 	}
 	
-    if (cached) return `${cached}-${scached}`;
-
-
-    // 2) Altrimenti lo chiedo al server
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-
-    try {
-        const res = await fetch("/signin", { signal: controller.signal });
+	
+	if(!cacheduser){
+		cacheduser=prompt("username");
+		localStorage.setItem("signin_username", cacheduser);
+	}
+	
+	
+    if (!cached)try {
+        const res = await fetch("/signin?username="+cacheduser);
         if (!res.ok) throw new Error("Errore HTTP: " + res.status);
-
         const data = await res.json();
-
         // 3) Salvo in cache
-        localStorage.setItem("signin_code", data.code);
-
-        return `${data.code}-${scached}`;
-
+		cached=data.code;
+        localStorage.setItem("signin_code", cached);
     } catch (err) {
-        console.error("Errore durante la richiesta del codice:", err);
+        console.error("Errore durante la richiesta del codice cliente:", err);
         return null;
+    }
+	
+	if (!scached)try {
+        const res = await fetch("/login?login="+cached+"&username="+cacheduser);
+        if (!res.ok) throw new Error("Errore HTTP: " + res.status);
+        const data = await res.json();
+        // 3) Salvo in cache
+		scached=data.session;
+        sessionStorage.setItem("session_code", scached);
+    } catch (err) {
+        console.error("Errore durante la richiesta del codice sessione:", err);
+        return null;
+    }
+	
+    return `${cached}-${scached}`;
+}
 
-    } finally {
-        clearTimeout(timer);
-    }
-}
-function generateSessionCode(length = 4) {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let out = "";
-    for (let i = 0; i < length; i++) {
-        out += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return out;
-}
 
 export function getSigninCode(){
 	const cached = localStorage.getItem("signin_code");
