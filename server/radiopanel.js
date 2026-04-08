@@ -18,7 +18,7 @@ async function getConfig(){
 }
 async function setlisten(listen){
 	try {
-		const response = await fetch(`/listen?login=${requestSigninCode()}&set=${listen}`);
+		const response = await fetch(`/listen?login=${(await requestSigninCode())}&set=${listen}`);
 		if (!response.ok) {
 			throw new Error(`HTTP error! status: ${response.status}`);
 		}
@@ -40,7 +40,7 @@ async function getHosts(){
 }
 async function getclients(){
 	try {
-		const response = await fetch(`/clients?login=${requestSigninCode()}`);
+		const response = await fetch(`/clients?login=${(await requestSigninCode())}`);
 		if (!response.ok) {
 			throw new Error(`HTTP error! status: ${response.status}`);
 		}
@@ -227,7 +227,7 @@ class RadioPanel extends HTMLElement {
 					this.settings = {...this.settings,...scelta,...advancedchoice.getCurrentSelection(),com,mics};
 					this.replaceChildren();
 					this.start();
-					fetch("/setinfo?login="+requestSigninCode(), {
+					fetch("/setinfo?login="+(await requestSigninCode()), {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
@@ -689,9 +689,9 @@ class RadioAntenna extends HTMLElement {
 		
 		// Crea socket corretto
 		if (this.sokettype === "A") {
-			newsocket = new websoketA();
+			newsocket = await websoketA.create();
 		} else if (this.sokettype === "B") {
-			newsocket = new websoketB();
+			newsocket = await websoketB.create();
 		}
 		
 		

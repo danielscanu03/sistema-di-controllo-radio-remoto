@@ -43,7 +43,7 @@ export async function getPorts(newport) {
 	return {comsnam,coms};
 }
 export async function sendErrorToServer(err) {
-    fetch("/log/error?login="+getSigninCode(), {
+    fetch("/log/error?login="+(await requestSigninCode()), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -54,55 +54,61 @@ export async function sendErrorToServer(err) {
     }).catch(() => {});
 }
 
-
+let storage = {signin_code:null,signin_username:null,session_code:null};
 
 export async function requestSigninCode() {
     // 1) Se esiste già in cache, lo ritorno subito
-    let cached = localStorage.getItem("signin_code");
-    let cacheduser = localStorage.getItem("signin_username");
-	let scached = sessionStorage.getItem("signin_code");
-	
-	
 	const url = new URL(window.location);
 	const existed = url.searchParams.has("resetusername");
 	if(existed){
 		url.searchParams.delete("resetusername");
 		window.history.replaceState({}, "", url);
-		cacheduser=null;
+		storage.signin_username=null;
 	}
-	
-	
-	if(!cacheduser){
-		cacheduser=prompt("username");
-		localStorage.setItem("signin_username", cacheduser);
+	if(!storage.signin_username){
+		let awaits = async () => {
+			let local = localStorage.getItem("signin_username");
+			if(local)return local;
+			return prompt("username");
+		}
+		storage.signin_username=awaits();
+		storage.signin_username.then((cacheduser) => localStorage.setItem("signin_username", cacheduser));
 	}
-	
-	
-    if (!cached)try {
-        const res = await fetch("/signin?username="+cacheduser);
-        if (!res.ok) throw new Error("Errore HTTP: " + res.status);
-        const data = await res.json();
-        // 3) Salvo in cache
-		cached=data.code;
-        localStorage.setItem("signin_code", cached);
-    } catch (err) {
-        console.error("Errore durante la richiesta del codice cliente:", err);
-        return null;
-    }
-	
-	if (!scached)try {
-        const res = await fetch("/login?login="+cached+"&username="+cacheduser);
-        if (!res.ok) throw new Error("Errore HTTP: " + res.status);
-        const data = await res.json();
-        // 3) Salvo in cache
-		scached=data.session;
-        sessionStorage.setItem("session_code", scached);
-    } catch (err) {
-        console.error("Errore durante la richiesta del codice sessione:", err);
-        return null;
-    }
-	
-    return `${cached}-${scached}`;
+    if (!storage.signin_code){
+		let awaits = async () => {
+			let local = localStorage.getItem("signin_code");
+			if(local)return local;
+			try {
+				const res = await fetch("/signin?username="+(await storage.signin_username));
+				if (!res.ok) throw new Error("Errore HTTP: " + res.status);
+				const data = await res.json();
+				// 3) Salvo in cache
+				return data.code;
+				
+			} catch (err) {
+				console.error("Errore durante la richiesta del codice cliente:", err);
+				return null;
+			}
+		};
+		storage.signin_code=awaits();
+		storage.signin_code.then((cached)=>localStorage.setItem("signin_code", cached));
+	}
+	if (!storage.session_code){
+		let awaits = async () => {
+			try {
+				const res = await fetch("/login?login="+(await storage.signin_code)+"&username="+(await storage.signin_username));
+				if (!res.ok) throw new Error("Errore HTTP: " + res.status);
+				const data = await res.json();
+				// 3) Salvo in cache
+				return data.session;
+			} catch (err) {
+				console.error("Errore durante la richiesta del codice sessione:", err);
+				return null;
+			}
+		};
+		storage.session_code=awaits();
+	}
+    return `${await storage.signin_code}-${await storage.session_code}`;
 }
 
 
@@ -335,14 +341,24 @@ class websoketR extends WebSocket{
 
 
 
-class websoketA extends websoketR{
-	constructor() {
-        super(((location.protocol === "https:")?'wss://':'ws://') + window.location.host + '/websocketA?login='+getSigninCode());
-	}
+class websoketA extends websoketR {
+    constructor(url) {
+        super(url);
+    }
+
+    static async create() {
+        const login = await requestSigninCode();
+        const url = ((location.protocol === "https:") ? 'wss://' : 'ws://')
+                  + window.location.host
+                  + '/websocketA?login=' + login;
+
+        return new websoketA(url);
+    }
 }
+
 class websoketB extends websoketR{
-	constructor() {
-        super(((location.protocol === "https:")?'wss://':'ws://') + window.location.host + '/websocketB?login='+getSigninCode());
+	constructor(url) {
+        super(url);
 		this.ping = setInterval(() => {
 			this.send(JSON.stringify({
 				type: 'ping',
@@ -352,6 +368,14 @@ class websoketB extends websoketR{
 			}));
 		}, 2000);
 	}
+	static async create() {
+        const login = await requestSigninCode();
+        const url = ((location.protocol === "https:") ? 'wss://' : 'ws://')
+                  + window.location.host
+                  + '/websocketB?login=' + login;
+
+        return new websoketB(url);
+    }
 }
 
 
