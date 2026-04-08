@@ -106,12 +106,6 @@ export async function requestSigninCode() {
 }
 
 
-export function getSigninCode(){
-	const cached = localStorage.getItem("signin_code");
-	const scached = sessionStorage.getItem("session_code");
-    return `${cached}-${scached}`;
-}
-
 
 function jsonfind(data, from) {
     let key = null;

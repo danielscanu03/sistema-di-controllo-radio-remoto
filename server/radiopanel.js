@@ -1,4 +1,4 @@
-import { websoketA,websoketB,COM,Interpreter,requestSigninCode,getSigninCode,sendErrorToServer,getPorts } from '/tools.js';
+import { websoketA,websoketB,COM,Interpreter,requestSigninCode,sendErrorToServer,getPorts } from '/tools.js';
 
 window.onerror = function (message, source, lineno, colno, error) {
     sendErrorToServer(error || message);
@@ -18,7 +18,7 @@ async function getConfig(){
 }
 async function setlisten(listen){
 	try {
-		const response = await fetch(`/listen?login=${getSigninCode()}&set=${listen}`);
+		const response = await fetch(`/listen?login=${requestSigninCode()}&set=${listen}`);
 		if (!response.ok) {
 			throw new Error(`HTTP error! status: ${response.status}`);
 		}
@@ -40,7 +40,7 @@ async function getHosts(){
 }
 async function getclients(){
 	try {
-		const response = await fetch(`/clients?login=${getSigninCode()}`);
+		const response = await fetch(`/clients?login=${requestSigninCode()}`);
 		if (!response.ok) {
 			throw new Error(`HTTP error! status: ${response.status}`);
 		}
@@ -227,7 +227,7 @@ class RadioPanel extends HTMLElement {
 					this.settings = {...this.settings,...scelta,...advancedchoice.getCurrentSelection(),com,mics};
 					this.replaceChildren();
 					this.start();
-					fetch("/setinfo?login="+getSigninCode(), {
+					fetch("/setinfo?login="+requestSigninCode(), {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
