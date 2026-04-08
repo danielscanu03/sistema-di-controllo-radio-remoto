@@ -243,6 +243,7 @@ class RadioPanel extends HTMLElement {
 				let hosts = await getHosts()
 				console.log(hosts.hosts);
 				let hostsma = hosts.hosts.map(e => `${e.username} ${e.radio}`);
+				let hostsmacodes = hosts.hosts.map(item => item.codelogin);
 				let counter = {};
 				let uniqueList = hostsma.map(item => {if (!counter[item]) {counter[item] = 1;return item;} else {counter[item]++;return `${item} (${counter[item]})`;}});
 				choice.items = {host:uniqueList};
@@ -253,7 +254,11 @@ class RadioPanel extends HTMLElement {
 					
 				};
 				this.appendChild(choice);
-				if(windowparams.get("host")&&windowparams.get("host") in choice.items.host){await choice.emitChoice({host:{value:windowparams.get("host")}});}
+
+				if(windowparams.get("host")&&hostsmacodes.includes(windowparams.get("host"))){
+					let ind = hostsmacodes.indexOf(windowparams.get("host"))
+					await choice.emitChoice({host:{value:uniqueList[ind].value,index:ind}});
+				}
 
 				//let web = new websoketB();
 			}
