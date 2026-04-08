@@ -325,7 +325,7 @@ class RadioBoard extends HTMLElement {
 				return;
 			}
 			let config = radiopanel.jsonConfig.radio[radiopanel.settings.radio.value];
-			console.log(config,this.querySelectorAll("radio-indicator"));
+			//console.log(config,this.querySelectorAll("radio-indicator"));
 			let buttons={}
 			this.querySelectorAll("button").forEach(el => {
 				let type = el.getAttribute("type")?.split(",");

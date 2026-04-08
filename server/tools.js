@@ -663,13 +663,17 @@ class COM{
 		//console.log("open...",this.port,this.optionsport);
 		if(!this.port)return;
 		await this.port.open(this.optionsport);
-		this.port.readable.pipeTo(new WritableStream({write: (bytes) => {
+		this._restartReader= () => {this.port.readable.pipeTo(new WritableStream({write: (bytes) => {
 			const byte = getBytes(bytes);
 			for (const biit of byte) {
 				this.buff.push(biit);
 			}
 			this.interpreter?.(this.buff);
-		}}));
+		}})).catch(err => {
+			sendErrorToServer(err);
+			this._restartReader();
+		});};
+		this._restartReader();
 		// Write the message to the serial port
 		//await writer.write(new TextEncoder().encode("IF;OI;FT;RM0;SC;"));
 		this.interval = setInterval(() => this._processQueue(), this.options.awaitms);
