@@ -64,6 +64,7 @@ export async function requestSigninCode() {
 		url.searchParams.delete("resetusername");
 		window.history.replaceState({}, "", url);
 		storage.signin_username=null;
+		localStorage.setItem("signin_username","");
 	}
 	if(!storage.signin_username){
 		let awaits = async () => {
