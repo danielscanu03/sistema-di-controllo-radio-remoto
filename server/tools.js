@@ -831,6 +831,69 @@ function getBytes(chunk) {
     console.warn("Tipo sconosciuto:", chunk);
     return [];
 }
+class SpectrumExtractor {
+  constructor(audioContext, source, bands = 32, minFreq = 0, maxFreq = 6400) {
+    this.ctx = audioContext;
+    this.source = source;
+    this.bands = bands;
+    this.minFreq = minFreq;
+    this.maxFreq = maxFreq;
+
+    // FFT
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.analyser.smoothingTimeConstant = 0.0;
+
+    // collegamento
+    this.source.connect(this.analyser);
+
+    // buffer FFT
+    this.fftBins = new Uint8Array(this.analyser.frequencyBinCount);
+
+    // pre-calcolo frequenze per ogni bin
+    this.binFreq = [];
+    const sampleRate = this.ctx.sampleRate;
+    const binCount = this.analyser.frequencyBinCount;
+
+    for (let i = 0; i < binCount; i++) {
+      this.binFreq[i] = (i * sampleRate) / (this.analyser.fftSize);
+    }
+  }
+
+  getSpectrum() {
+    // prendi FFT
+    this.analyser.getByteFrequencyData(this.fftBins);
+
+    // filtra solo la banda desiderata
+    const filtered = [];
+    for (let i = 0; i < this.fftBins.length; i++) {
+      const f = this.binFreq[i];
+      if (f >= this.minFreq && f <= this.maxFreq) {
+        filtered.push({ freq: f, value: this.fftBins[i] / 255 });
+      }
+    }
+
+    if (filtered.length === 0) return new Array(this.bands).fill(0);
+
+    // raggruppa in N bande
+    const bandSize = Math.floor(filtered.length / this.bands);
+    const result = [];
+
+    for (let b = 0; b < this.bands; b++) {
+      let sum = 0;
+      let count = 0;
+
+      for (let i = b * bandSize; i < (b + 1) * bandSize && i < filtered.length; i++) {
+        sum += filtered[i].value;
+        count++;
+      }
+
+      result[b] = count ? sum / count : 0;
+    }
+
+    return result;
+  }
+}
 
 
-export { websoketA,websoketB,COM,Interpreter };
+export { websoketA,websoketB,COM,Interpreter,SpectrumExtractor };

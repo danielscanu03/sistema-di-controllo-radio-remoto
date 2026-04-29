@@ -1,4 +1,4 @@
-import { websoketA,websoketB,COM,Interpreter,requestSigninCode,sendErrorToServer,getPorts } from '/tools.js';
+import { websoketA,websoketB,COM,Interpreter,requestSigninCode,sendErrorToServer,getPorts,SpectrumExtractor } from '/tools.js';
 
 window.onerror = function (message, source, lineno, colno, error) {
     sendErrorToServer(error || message);
@@ -800,12 +800,18 @@ class RadioAntenna extends HTMLElement {
 
 	
 }
-
+	// genera una riga casuale da 32 valori
+	function randomRow() {
+	  return Array.from({ length: 32 }, () => Math.random());
+	}
 class RadioSpeaker extends HTMLElement {
     constructor() {
         super();
 		this.on=true;
 		this.volume=4;
+		this.pressTimer=null;
+		this.spetre=null;
+		this.filters={hp:null,lp:null,gainNode:null};
     }
 	changeIcon(ic){
 		const icon = this.querySelector("#icon");
@@ -833,8 +839,78 @@ class RadioSpeaker extends HTMLElement {
         };
 
         this.parentElement.addEventListener("radio-playaudio", this._listener);
+        this.addEventListener("contextmenu", this.mixer);
+		this.addEventListener("pointerdown", () => {
+		  this.pressTimer = setTimeout(() => {this.mixer();}, 500);
+		});
+		this.addEventListener("pointerup", () => {clearTimeout(this.pressTimer);});
+		this.addEventListener("pointerleave", () => {clearTimeout(this.pressTimer);});
     }
 
+	
+	mixer(open = true){
+		event.preventDefault();
+		console.log("click!!");
+		
+		let mix = this.closest("radio-panel").querySelector(".radio-mixer")
+		
+		
+		
+		if(!mix){
+			mix = document.createElement("div");
+			mix.innerHTML=`<style>
+				.radio-mixer {position: absolute;inset: 0; /* top:0; right:0; bottom:0; left:0 */background: rgba(0,0,0,1); /* opzionale */pointer-events: auto; /* cattura i click */}
+			</style>`;
+			let spectrum = document.createElement("radio-spectrum");
+			
+			// aggiunge una riga ogni 50ms
+			setInterval(() => {
+			  if(!this.spetre)spectrum.addRow(randomRow());else spectrum.addRow(this.spetre.getSpectrum());
+			}, 50);
+			let close = document.createElement("button");
+			let curs = document.createElement("radio-cursor");
+			let curs2 = document.createElement("radio-cursor");
+			curs2.setAttribute("vertical","");
+			curs2.setAttribute("nomin","");
+			close.onclick=()=>{this.mixer(false);}
+			close.innerHTML="X";
+			mix.className="radio-mixer";
+			
+			mix.appendChild(close);
+			mix.appendChild(spectrum);
+			mix.appendChild(curs2);
+			mix.appendChild(curs);
+			curs.setbound(this.spetre.minFreq,this.spetre.maxFreq);
+			curs2.setbound(0,10);
+			
+			curs.style.height="20px";
+			curs2.style.height="20px";
+			curs.style.width="300px";
+			curs2.style.width="150px";
+			curs2.style.left="310px";
+			curs2.style.top="-85px";
+			curs.style.top="-20px";
+			curs.update=()=>{
+				if(this.filters.lp)this.filters.lp.frequency.value=mix.hasAttribute("inverted")?curs.valueMin:curs.valueMax;
+				if(this.filters.hp)this.filters.hp.frequency.value=mix.hasAttribute("inverted")?curs.valueMax:curs.valueMin;
+			};
+			curs2.update=()=>{
+				if(this.filters.gainNode)this.filters.gainNode.gain.value=curs2.valueMax;
+			};
+			
+			curs.valueMin=300;
+			curs.valueMax=3400;
+			curs2.valueMax=this.volume??1;
+			this.closest("radio-panel").appendChild(mix);
+		}
+		this.closest("radio-panel").querySelector(".radio-mixer")
+		
+		console.log(this.closest(".container").querySelector("radio-panel"));
+		mix.style.display = open?"":"none";
+		
+	}
+	
+	
     disactive() {
         this.style.opacity = 0.3;
         this.on = false;
@@ -868,7 +944,6 @@ class RadioSpeaker extends HTMLElement {
 		const sampleRate = this.audioContext.sampleRate;
 		const duration = 0.1; // 100ms
 		const length = sampleRate * duration;
-
     }
 	
 	playBase64(paket){
@@ -878,18 +953,14 @@ class RadioSpeaker extends HTMLElement {
         for (let i = 0; i < uint8Array.length; i++) {
             float32Array[i] = (uint8Array[i] - 128) / 128; // Map 0-255 to -1.0 to 1.0
         }
-		
 		this.play(float32Array);
 	}
 	getQueueTime() {
 		if (!this.audioQueue || this.audioQueue.length === 0) return 0;
-
 		let totalSeconds = 0;
-
 		for (const buffer of this.audioQueue) {
 			totalSeconds += buffer.length / buffer.sampleRate;
 		}
-
 		return totalSeconds;
 	}
 	play(paket){
@@ -911,34 +982,29 @@ class RadioSpeaker extends HTMLElement {
 			this.timestart = null;
 			return;
 		}
-
 		this.isPlaying = true;
 		const audioBuffer = this.audioQueue.shift(); // Get the next audio buffer
-		
-
-
-		
 		try {
 			const source = this.audioContext.createBufferSource();
 			source.buffer = audioBuffer;
 			
-			if (!this.gainNode) {
-				const hp = this.audioContext.createBiquadFilter();
-				hp.type = "highpass";
-				hp.frequency.value = 300;   // frequenza di taglio
-				hp.Q.value = 1;             // risonanza
-				const bp = this.audioContext.createBiquadFilter();
-				bp.type = "basspass";
-				bp.frequency.value = 1000;   // frequenza di taglio
-				bp.Q.value = 0.7;             // risonanza
-				
-				hp.connect(this.audioContext.destination);
-				bp.connect(hp);
-				this.gainNode = this.audioContext.createGain();
-				this.gainNode.gain.value = this.volume ?? 1; // volume di default
-				this.gainNode.connect(bp);
+			if (!this.filters.gainNode) {
+				this.filters.hp = this.audioContext.createBiquadFilter();
+				this.filters.hp.type = "highpass";
+				this.filters.hp.frequency.value = 300;   // frequenza di taglio
+				this.filters.hp.Q.value = 1;             // risonanza
+				this.filters.lp = this.audioContext.createBiquadFilter();
+				this.filters.lp.type = "lowpass";
+				this.filters.lp.frequency.value = 1000;   // frequenza di taglio
+				this.filters.lp.Q.value = 0.7;             // risonanza
+				this.spetre = new SpectrumExtractor(this.audioContext,this.filters.hp,64,0,6000);
+				this.filters.hp.connect(this.audioContext.destination);
+				this.filters.lp.connect(this.filters.hp);
+				this.filters.gainNode = this.audioContext.createGain();
+				this.filters.gainNode.gain.value = this.volume ?? 1; // volume di default
+				this.filters.gainNode.connect(this.filters.lp);
 			}
-			source.connect(this.gainNode);
+			source.connect(this.filters.gainNode);
 			
 			if(!this.timestart)source.start();
 			else{
@@ -960,6 +1026,177 @@ class RadioSpeaker extends HTMLElement {
 		}
 	}
 }
+
+class Radiocursor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this.shadowRoot.innerHTML = `<style>
+		.radio-mixer {position: absolute;inset: 0; /* top:0; right:0; bottom:0; left:0 */background: rgba(0,0,0,0); /* opzionale */pointer-events: auto; /* cattura i click */}
+		.range-container {position: relative;width: 100%;height: 100%;}
+		.range-container input[type="range"] {position: absolute;left: 0;width: 100%;pointer-events: none;-webkit-appearance: none;background: none;}
+		.range-container input[type="range"]::-webkit-slider-thumb {-webkit-appearance: none;pointer-events: auto;width: 16px;height: 16px;border-radius: 50%;background: #fff;border: 2px solid #000;}
+		.range-track {position: absolute;top: 50%;left: 0;width: 100%;height: 4px;background: #888;transform: translateY(-50%);}
+		.range-track::after {content: "";position: absolute;top: 0;height: 100%;background: #4caf50; /* colore tra min e max */left: var(--min, 0%);right: calc(100% - var(--max, 100%));}
+		.radio-mixer[inverted] .range-track {background: #4caf50;}
+		.radio-mixer[inverted] .range-track::after {background: #888;}
+		:host([nomin]) #min {display:none;}
+
+	</style><div class="radio-mixer">
+        <div class="range-container">
+          <div class="range-track"></div>
+          <input type="range" id="min">
+          <input type="range" id="max">
+        </div>
+      </div>
+    `;
+	
+	new MutationObserver(mutations => {
+		for (const m of mutations) {
+			if (this.hasAttribute("vertical")) {
+			this.style.transform="translateX(-50%) rotate(-90deg)";
+		  } else {
+			this.style.transform="";
+		  }
+	    }
+	}).observe(this, {
+	  attributes: true,
+	  attributeFilter: ["vertical"]
+	});
+	
+    this.minInput = this.shadowRoot.querySelector("#min");
+    this.maxInput = this.shadowRoot.querySelector("#max");
+	
+	//this.querySelector()
+    this.track = this.shadowRoot.querySelector(".range-track");
+  }
+  connectedCallback() {
+	this.style.position="relative";
+	this.style.display="block";
+    this.minInput.addEventListener("input", () => this.updateTrack());
+    this.maxInput.addEventListener("input", () => this.updateTrack());
+    this.updateTrack();
+  }
+
+  updateTrack() {
+	if(this.hasAttribute("nomin"))this.minInput.value=this.minInput.min;
+    let minVal = parseInt(this.minInput.value);
+    let maxVal = parseInt(this.maxInput.value);
+	
+	if(this.shadowRoot.querySelector(".radio-mixer").hasAttribute("inverted"))[minVal, maxVal] = [maxVal, minVal];
+    if (minVal > maxVal) {
+      [minVal, maxVal] = [maxVal, minVal];
+	  this.shadowRoot.querySelector(".radio-mixer").toggleAttribute("inverted");
+    }
+
+    const minPercent = (minVal - this.minInput.min) / (this.minInput.max - this.minInput.min) * 100;
+    const maxPercent = (maxVal - this.maxInput.min) / (this.maxInput.max - this.maxInput.min) * 100;
+
+    this.track.style.setProperty("--min", minPercent + "%");
+    this.track.style.setProperty("--max", maxPercent + "%");
+	this.update?.();
+  }
+
+  // API comoda
+  get valueMin() { return parseInt(this.minInput.value); }
+  get valueMax() { return parseInt(this.maxInput.value); }
+
+  set valueMin(v) { this.minInput.value = v; this.updateTrack(); }
+  set valueMax(v) { this.maxInput.value = v; this.updateTrack(); }
+  
+  setbound(min,max){
+	this.minInput.setAttribute("min",min);
+	this.maxInput.setAttribute("min",min);
+	this.minInput.setAttribute("max",max);
+	this.maxInput.setAttribute("max",max);
+  }
+}
+
+
+
+class RadioSpectrum extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: block;
+          width: 300px;
+          height: 150px;
+          background: black;
+        }
+        canvas {
+          width: 100%;
+          height: 100%;
+        }
+      </style>
+      <canvas></canvas>
+    `;
+
+    this.canvas = this.shadowRoot.querySelector("canvas");
+    this.ctx = this.canvas.getContext("2d");
+
+    this.rows = []; // tutte le righe dello spettro
+  }
+
+  connectedCallback() {
+    this.resize();
+    window.addEventListener("resize", () => this.resize());
+  }
+
+  resize() {
+    this.canvas.width = this.canvas.clientWidth;
+    this.canvas.height = this.canvas.clientHeight;
+    this.redraw();
+  }
+
+  // aggiunge una riga allo spettro
+  addRow(values) {
+    this.rows.push(values);
+
+    // limite massimo di righe visibili
+    const maxRows = this.canvas.height;
+    if (this.rows.length > maxRows) {
+      this.rows.shift();
+    }
+
+    this.redraw();
+  }
+
+  // mappa valore 0..1 → colore
+  valueToColor(v) {
+    const r = Math.floor(v * 255);
+    const g = Math.floor((1 - v) * 255);
+    const b = 100;
+    return `rgb(${r},${g},${b})`;
+  }
+
+  redraw() {
+    const ctx = this.ctx;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+
+    const rowHeight = 1; // ogni riga = 1px
+    const colWidth = w / (this.rows[0]?.length || 1);
+
+    this.rows.forEach((row, rowIndex) => {
+      row.forEach((v, colIndex) => {
+        ctx.fillStyle = this.valueToColor(v);
+        ctx.fillRect(
+          colIndex * colWidth,
+          h - (rowIndex + 1) * rowHeight,
+          colWidth,
+          rowHeight
+        );
+      });
+    });
+  }
+}
+
 
 
 
@@ -1098,3 +1335,7 @@ customElements.define("radio-speaker", RadioSpeaker);
 customElements.define("radio-antenna", RadioAntenna);
 
 customElements.define("display-frequence", DisplayFrequence);
+
+customElements.define("radio-spectrum", RadioSpectrum);
+
+customElements.define("radio-cursor", Radiocursor);
