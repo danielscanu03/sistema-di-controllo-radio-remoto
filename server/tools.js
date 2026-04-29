@@ -230,19 +230,17 @@ class websoketR extends WebSocket{
 	
 	constructor(link) {
         super(link);
-
-		
+		this.opening = new Promise(resolve => {
+			this.handleOpen=()=>{resolve();};
+		});
 		this.msghandle= new messsageHandle();
 		console.log('WebSocket to:',link);
 		this.onopen = this.handleOpen.bind(this);
         this.onmessage = this.handleMessage.bind(this);
         this.onerror = this.handleError.bind(this);
         this.onclose = this.handleClose.bind(this);
+		
     }
-	
-  handleOpen(){
-    console.log('WebSocket connected');
-  };
 
   handleMessage(event){
     const data = JSON.parse(event.data);            // Parse the incoming JSON

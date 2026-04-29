@@ -123,6 +123,7 @@ class RadioPanel extends HTMLElement {
 		ant.style.top="0%";
 		ant.style.right="0%";
 		ant.style.position="absolute";
+		await ant.opening;
 		
 		
 		let setionU = document.createElement("div")
@@ -226,7 +227,7 @@ class RadioPanel extends HTMLElement {
 				choice.emitChoice=async (scelta) => {
 					this.settings = {...this.settings,...scelta,...advancedchoice.getCurrentSelection(),com,mics};
 					this.replaceChildren();
-					this.start();
+					await this.start();
 					fetch("/setinfo?login="+(await requestSigninCode()), {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -635,6 +636,11 @@ class RadioAntenna extends HTMLElement {
 	constructor() {
         super();
 		this.on=true;
+		this.opening = new Promise(resolve => {
+			this.onopen=async ()=>{
+				await this.socket.opening;
+				resolve();};
+		});
     }
 	connectedCallback() {
 		let img = document.createElement("img");
@@ -665,7 +671,6 @@ class RadioAntenna extends HTMLElement {
 
         this.parentElement.addEventListener("radio-update", this._listener);
         this.parentElement.addEventListener("radio-setEvent", this._listener2);
-		
 		
 	}
 	disactive(){
@@ -736,7 +741,7 @@ class RadioAntenna extends HTMLElement {
 				request:"getclients"
 			}));
 		}, 5000);
-		
+		this.onopen?.();
 	}
 	
 	clientsort(newClients){

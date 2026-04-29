@@ -50,7 +50,8 @@ class ClientData:
                     "username": self.username,
                     "codelogin": self.codelogin,
                     "isConnected": self.isConnected,
-                    "typewb":self.typewb
+                    "typewb":self.typewb,
+                    "radio":self.radio
                 }}
             }
         self.settedusername=self.settedusername if self.settedusername else populate["settedusername"]
@@ -61,7 +62,8 @@ class ClientData:
                 "username": self.username,
                 "codelogin": self.codelogin,
                 "isConnected": self.isConnected,
-                "typewb":self.typewb
+                "typewb":self.typewb,
+                "radio":self.radio
             }
         return populate
         
@@ -81,6 +83,9 @@ class ClientData:
         # if self.getcode()[0] in db and "settedusername" in db[self.getcode()[0]] and not self.settedusername:
             # print("???",self.settedusername,db[self.getcode()[0]])
             # self.settedusername=db[self.getcode()[0]]["settedusername"]
+        if self.getcode()[0] in db and self.getcode()[1] in db[self.getcode()[0]]:
+            if "radio" in db[self.getcode()[0]][self.getcode()[1]]:
+                self.radio = db[self.getcode()[0]][self.getcode()[1]]["radio"]
         db[self.getcode()[0]] = self.to_dict(db[self.getcode()[0]] if self.getcode()[0] in db else None)
         with open(path, "w") as f:
             json.dump(db, f, indent=4)

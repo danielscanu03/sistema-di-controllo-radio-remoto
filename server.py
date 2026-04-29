@@ -309,12 +309,15 @@ def setinfo(data: DataLog, request: Request):
     login = request.query_params.get("login")
     logindata=chatHandler.clients.get(login)[1]
     
-    
+    if not logindata:
+        logindata=ClientData("", 0, False)
+    logindata.codelogin=login
     if 'radio' in data.data:
         logindata.radio=data.data['radio']
+        print(data.data['radio']);
     if 'username' in data.data:
         logindata.settedusername=data.data['username']
-    
+    logindata.save()
     
     print("set",data.data,login);
     return {"status": "ok"}
