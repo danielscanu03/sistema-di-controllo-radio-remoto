@@ -24,6 +24,14 @@ function driftCheck() {
     setTimeout(driftCheck, INTERVAL);
 }
 
+export async function coordsToAddress(lat, lon) {
+  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return data.display_name; // indirizzo completo
+}
+
+
 // Avvio
 driftCheck();
 export async function getPorts(newport) {
@@ -54,7 +62,7 @@ export async function sendErrorToServer(err) {
     }).catch(() => {});
 }
 
-let storage = {signin_code:null,signin_username:null,session_code:null};
+export let storage = {signin_code:null,signin_username:null,session_code:null,position:{lat:0,lon:0}};
 
 export async function requestSigninCode() {
     // 1) Se esiste già in cache, lo ritorno subito

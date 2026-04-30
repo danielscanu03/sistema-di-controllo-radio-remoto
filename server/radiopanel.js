@@ -1,4 +1,4 @@
-import { websoketA,websoketB,COM,Interpreter,requestSigninCode,sendErrorToServer,getPorts,SpectrumExtractor } from '/tools.js';
+import { websoketA,websoketB,COM,Interpreter,requestSigninCode,sendErrorToServer,getPorts,SpectrumExtractor,storage,coordsToAddress } from '/tools.js';
 
 window.onerror = function (message, source, lineno, colno, error) {
     sendErrorToServer(error || message);
@@ -67,8 +67,6 @@ function flattenValues(obj) {
     return result;
 }
 
-
-
 class RadioPanel extends HTMLElement {
     constructor() {
         super();
@@ -128,14 +126,17 @@ class RadioPanel extends HTMLElement {
 		
 		let setionU = document.createElement("div")
 		let utentlist = document.createElement("radio-utentlist")
+		let position = document.createElement("radio-position")
 		setionU.style.top="0%";
 		setionU.style.right="20%";
 		setionU.style.width="20%";
 		setionU.style.aspectRatio= "1 / 1";
 		setionU.style.position="absolute";
-		
+		setionU.style.display= "flex";
+		setionU.style.flexDirection= "column";
 		
 		setionU.appendChild(utentlist);
+		setionU.appendChild(position);
 		this.appendChild(setionU);
 		this.appendChild(document.createElement("radio-board"));
 		let radioinfo = document.createElement("radio-info");
@@ -277,8 +278,6 @@ class RadioPanel extends HTMLElement {
 			targetElement: element?element:this
 		}}));
 	}
-
-	
 }
 
 class RadioBoard extends HTMLElement {
@@ -290,6 +289,30 @@ class RadioBoard extends HTMLElement {
 	async connectedCallback() {
         const html = await fetch("/radioboard.html").then(r => r.text());
         this.innerHTML =  `${html}`;
+		let click = false;
+		let setteroggle= (elem)=>{
+			
+			
+			
+			let settoggle = null;
+			
+			let cleartimer= () => {clearTimeout(this.pressTimer);click=false;};
+			
+			let toggle=()=>{this.querySelector(".radioboard").toggleAttribute("frequence");this.querySelector(".radioboard").toggleAttribute("spetrefrequence");};
+			let toggleprev=()=>{event.preventDefault();if(click)return;toggle();};
+			let toggletimer=() => {click=true;this.pressTimer = setTimeout(() => {toggle();}, 500);};
+			settoggle = ()=>{
+				elem.addEventListener("contextmenu", toggleprev);
+				elem.addEventListener("pointerdown", toggletimer);
+				elem.addEventListener("pointermove", cleartimer);
+				elem.addEventListener("pointerup", cleartimer);
+				elem.addEventListener("pointerleave", cleartimer);
+			}
+			settoggle();
+		}
+		this.querySelectorAll("display-frequence").forEach(el => setteroggle(el));
+		this.querySelectorAll("radio-spetrefrequence").forEach(el => setteroggle(el));
+		
 		this._listener = (ev) => {let e = ev.detail;
             this.querySelectorAll("display-frequence").forEach(el => {
 				if(e.detail.radioinfo[el.getAttribute("VFO")])el.updatefrequence(e.detail.radioinfo[el.getAttribute("VFO")]);
@@ -468,6 +491,221 @@ class DisplayFrequence extends HTMLElement {
 }
 
 
+class SpetreFrequence extends HTMLElement{
+    constructor() {
+        super();
+    }
+	connectedCallback() {
+		
+		let style =  document.createElement("style");
+		style.innerHTML=`
+			radio-spetrefrequence > * {
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+			}
+			radio-spetrefrequence input[type="range"] {
+			  -webkit-appearance: none;
+			  background: transparent;
+			  position: relative;
+			}
+			radio-spetrefrequence input[type="range"]::-webkit-slider-runnable-track {
+			  height: 100%;
+			  width: 100%;
+			}
+
+			/* THUMB = barra verticale alta quanto lo slider */
+			radio-spetrefrequence input[type="range"]::-webkit-slider-thumb {
+			  -webkit-appearance: none;
+			  width: 5px;         /* spessore della barra */
+			  height: 100%;       /* ← funziona perché riferito al range, NON alla track */
+			  background: #f00;
+			  border: 2px solid #000;
+			  border-radius: 2px;
+			}
+
+			
+			
+			
+		`;
+		let spetre =  document.createElement("radio-spectrum");
+		let frequence =  document.createElement("input");
+		frequence.type="range";
+		this.style.position="relative";
+
+		
+		
+		this.appendChild(style);
+		this.appendChild(spetre);
+		this.appendChild(frequence);
+		this.pinch(this,(scale)=>{console.log(scale);})
+	}
+	
+	pinch(elem,callback){
+	  let pointers = new Map();
+	  let startDistance = 0;
+
+	  elem.addEventListener("pointerdown", e => {
+		pointers.set(e.pointerId, e);
+	  });
+
+	  elem.addEventListener("pointermove", e => {
+		if (!pointers.has(e.pointerId)) return;
+		pointers.set(e.pointerId, e);
+
+		if (pointers.size === 2) {
+		  const [p1, p2] = [...pointers.values()];
+		  const dx = p1.clientX - p2.clientX;
+		  const dy = p1.clientY - p2.clientY;
+		  const dist = Math.hypot(dx, dy);
+
+		  if (!startDistance) startDistance = dist;
+
+		  callback(dist / startDistance);
+		}
+	  });
+
+	  elem.addEventListener("pointerup", e => {
+		pointers.delete(e.pointerId);
+		if (pointers.size < 2) startDistance = 0;
+	  });
+
+	  elem.addEventListener("wheel", e => {
+		if (e.ctrlKey) {
+		  e.preventDefault();
+		  callback(e.deltaY < 0 ? 1.05 : 0.95);
+		}
+	  }, { passive: false });
+	}
+	
+	
+	
+}
+
+
+
+
+
+class Radioposition extends HTMLElement {
+    constructor() {
+        super();
+    }
+	connectedCallback() {
+		let style = document.createElement("style");
+		style.innerHTML = `
+		radio-position img {display:block;width:20%;left:80%;position:relative;}
+		`;
+		let img = document.createElement("img");
+		img.id = "icon"; 
+		img.src="/immagini/position.svg";
+		this.appendChild(style);
+		this.appendChild(img);
+		this.style.width="100%";
+		this.addEventListener("click", () => {this.position();});
+	}
+	position(open = true){
+		let poscamp = this.closest("radio-panel").querySelector(".radio-positioncamp");
+		
+		if(!poscamp){
+			poscamp = document.createElement("div");
+			poscamp.innerHTML=`<style>
+				.radio-positioncamp {position: absolute;inset: 0; /* top:0; right:0; bottom:0; left:0 */background: rgba(0,0,0,1); /* opzionale */pointer-events: auto; /* cattura i click */}
+				.radio-positioncamp input[type="text"] {
+					margin: 5px;
+					padding: 10px 15px;
+					background-color: #555;
+					color: #0f0;
+					border: none;
+					border-radius: 4px;
+					cursor: pointer;
+				}
+				.radio-positioncamp div[type="text"] {
+					color: #0f0;
+					display:flex;
+					align-items="center";
+				}
+			</style>`;
+			this.closest("radio-panel").appendChild(poscamp);
+			poscamp.className="radio-positioncamp";
+			poscamp.style.flexDirection="column";
+			let close = document.createElement("button");
+			let auto = document.createElement("button");
+			
+			let locator = document.createElement("div");
+			let lat = document.createElement("input");
+			let lon = document.createElement("input");
+			
+			locator.setAttribute("type","text");
+			
+			close.onclick=()=>{this.position(false);}
+			close.style.width= "5%";
+			close.style.aspectRatio= "1 / 1";
+			close.innerHTML="X";
+			auto.style.width= "15%";
+			auto.innerHTML="auto find";
+			poscamp.appendChild(close);
+			poscamp.appendChild(auto);
+			auto.onclick=()=>{
+				navigator.geolocation.getCurrentPosition(async pos => {
+				  const clat = pos.coords.latitude;
+				  const clon = pos.coords.longitude;
+
+				  const address = await coordsToAddress(clat, clon);
+				  
+				  lat.value=clat;
+				  lon.value=clon;
+				  storage.lat=clat;
+				  storage.lon=clon;
+				  
+				  console.log("Indirizzo:", address);
+				  locator.innerHTML=address;
+				  const linkPosizione = `https://www.google.com/maps?q=${clat},${clon}`;
+				  locator.onclick=()=>{window.open(linkPosizione, '_blank')};
+				});
+			};
+			
+			let lonbox = document.createElement("div");
+			lonbox.style.width= "40%";
+			lonbox.style.display= "flex";
+			lon.setAttribute("type","text");
+			lon.style.width= "80%";
+			let textlon = document.createElement("div");
+			textlon.setAttribute("type","text");
+			textlon.innerHTML="lon:";
+			textlon.style.width= "15%";
+			
+			lonbox.appendChild(textlon);
+			lonbox.appendChild(lon);
+			
+			let latbox = document.createElement("div");
+			latbox.style.width= "40%";
+			latbox.style.display="flex";
+			lat.setAttribute("type","text");
+			lat.style.width= "80%";
+			let textlat = document.createElement("div");
+			textlat.setAttribute("type","text");
+			textlat.innerHTML="lat:";
+			textlat.style.width= "15%";
+			
+			latbox.appendChild(textlat);
+			latbox.appendChild(lat);
+			
+			lat.onchange=()=>{storage.lat=lat.value;};
+			lon.onchange=()=>{storage.lon=lon.value;};
+			
+			
+			
+			poscamp.appendChild(lonbox);
+			poscamp.appendChild(latbox);
+			poscamp.appendChild(locator);
+			
+			
+		}
+		poscamp.style.display = open?"flex":"none";
+	}
+}
 class RadioUtentList extends HTMLElement {
     constructor() {
         super();
@@ -477,14 +715,22 @@ class RadioUtentList extends HTMLElement {
 		let img = document.createElement("img");
 		let Ulist = document.createElement("Ulist");
 		let Unum = document.createElement("div");
+		let Unum2 = document.createElement("div");
 		let style = document.createElement("style");
 		style.innerHTML = `
 		Ulist {display: none;}
-		radio-utentlist[open] Ulist {display: block;top:20%;position:absolute;}
+		radio-utentlist {display: block;}
+		radio-utentlist[open] Ulist {display: block;position:relative;}
 		radio-utentlist[open] img {display: block;width:20%;left:40%;}
-		radio-utentlist img {display:block;width:40%;left:60%;position:absolute;}
+		radio-utentlist[connected]:not([open]) img {display: block;left:20%;}
+		radio-utentlist img {display:block;width:40%;left:60%;position:relative;}
 		radio-utentlist[B] img {pointer-events:none;}
-		radio-utentlist span {color: #0f0;display: block;}`;
+		radio-utentlist span {color: #0f0;display: block;}
+		.auto-number {display:none;}
+		radio-utentlist[connected]:not([open]) .auto-number {width: 40%;height: 40%;left: 60%;top: 0%;display: flex;position: absolute;align-items: center;justify-content: center;}
+		.auto-number .num{font-size: clamp(10px, 10vw, 1000px);color: red;}
+		`;
+		
 		img.id = "icon"; 
 		img.src="/immagini/utents.svg";
 		this.style.overflow= "hidden";
@@ -492,11 +738,32 @@ class RadioUtentList extends HTMLElement {
 		this.appendChild(img);
 		this.appendChild(Ulist);
 		this.appendChild(Unum);
+		Unum.appendChild(Unum2);
+		Unum.className="auto-number";
+		Unum2.className="num";
+		Unum2.innerHTML="45";
 		this.style.width="100%";
 		this.toggleAttribute("B",true);
 		
+
+		const ro = new ResizeObserver(entries => {
+		    Unum.style.height= img.clientHeight+"px";
+			Unum2.style.fontSize = "1000px";
+			const scale = Math.min(
+				Unum.clientWidth / Unum2.scrollWidth,
+				Unum.clientHeight / Unum2.scrollHeight
+			  );
+			Unum2.style.fontSize = (scale * 1000) + "px"; // 20% dell’altezza
+		});
+
+		ro.observe(this);
+		ro.observe(Unum);
+		ro.observe(Unum2);
+		
+		
+		
 		this.querySelector("#icon").addEventListener("click", () => {
-            this.toggleAttribute("open");
+            if(this.querySelector("Ulist").childElementCount!=0)this.toggleAttribute("open");
         });
 		
 		
@@ -507,16 +774,21 @@ class RadioUtentList extends HTMLElement {
 			U.id = `id-${utent.codelogin}`;
 			U.textContent = utent.username;
 			this.querySelector("Ulist").appendChild(U);
+			if(this.querySelector("Ulist").childElementCount!=0&&!this.hasAttribute("B"))this.toggleAttribute("connected",true);
+			Unum2.innerHTML=this.querySelector("Ulist").childElementCount;
 		});
 		this.closest("radio-panel").addEventListener("radio-clientRemoved", (ev)=>{let utent = ev.detail.detail.client;
 			console.log("remove",utent);
 			let nodeut = this.querySelector("Ulist").querySelector(`#id-${utent.codelogin}`);
 			this.querySelector("Ulist").removeChild(nodeut);
+			if(this.querySelector("Ulist").childElementCount==0||this.hasAttribute("B"))this.toggleAttribute("connected",false);
+			Unum2.innerHTML=this.querySelector("Ulist").childElementCount;
 		});
 		
     }
 
 }
+
 class RadioInfo extends HTMLElement {
     constructor() {
         super();
@@ -805,10 +1077,7 @@ class RadioAntenna extends HTMLElement {
 
 	
 }
-	// genera una riga casuale da 32 valori
-	function randomRow() {
-	  return Array.from({ length: 32 }, () => Math.random());
-	}
+
 class RadioSpeaker extends HTMLElement {
     constructor() {
         super();
@@ -854,9 +1123,10 @@ class RadioSpeaker extends HTMLElement {
 
 	
 	mixer(open = true){
+		event.preventDefault();
 		console.log("click!!");
 		
-		let mix = this.closest("radio-panel").querySelector(".radio-mixer")
+		let mix = this.closest("radio-panel").querySelector(".radio-mixer");
 		
 		
 		
@@ -869,7 +1139,7 @@ class RadioSpeaker extends HTMLElement {
 			
 			// aggiunge una riga ogni 50ms
 			setInterval(() => {
-			  if(!this.spetre)spectrum.addRow(randomRow());else spectrum.addRow(this.spetre.getSpectrum());
+			  if(this.spetre)spectrum.addRow(this.spetre.getSpectrum());
 			}, 50);
 			let close = document.createElement("button");
 			let curs = document.createElement("radio-cursor");
@@ -926,7 +1196,7 @@ class RadioSpeaker extends HTMLElement {
         if (this.audioContext) {
             this.audioContext.close();
         }
-		this.gainNode = null;
+		this.filters.gainNode = null;
 		this.audioQueue=null;
 		this.isPlaying = false;
     }
@@ -939,7 +1209,7 @@ class RadioSpeaker extends HTMLElement {
         this.audioContext = new AudioContext({
             sampleRate: this.parentElement.settings.sampleRate
         });
-		this.gainNode = null;
+		this.filters.gainNode = null;
 		if(this.audioContext.state === "suspended"){
 			this.disactive();
 			return;
@@ -1046,18 +1316,8 @@ class Radiocursor extends HTMLElement {
 		.radio-mixer[inverted] .range-track::after {background: #888;}
 		:host([nomin]) #min {display:none;}
 		:host([vertical]) .range-container input[type="range"]{writing-mode: sideways-lr;}
-		:host([vertical]) .range-track {
-			height: 100%;
-			width: 4px;
-			left: 50%;
-		}
-		:host([vertical]) .range-track::after {
-		  bottom: var(--min,0%);
-		  top: calc(100% - var(--max,100%));
-		  left: 0;
-		  right: 0;
-		  height: auto;
-		}
+		:host([vertical]) .range-track {height: 100%;width: 4px;left: 50%;}
+		:host([vertical]) .range-track::after {bottom: var(--min,0%);top: calc(100% - var(--max,100%));left: 0;right: 0;height: auto;}
 
 	</style><div class="radio-mixer">
         <div class="range-container">
@@ -1130,8 +1390,6 @@ class Radiocursor extends HTMLElement {
 	this.maxInput.setAttribute("max",max);
   }
 }
-
-
 
 class RadioSpectrum extends HTMLElement {
   constructor() {
@@ -1215,9 +1473,6 @@ class RadioSpectrum extends HTMLElement {
     });
   }
 }
-
-
-
 
 class RadioChoice extends HTMLElement {
     constructor() {
@@ -1342,6 +1597,7 @@ customElements.define("radio-mic", RadioMic);
 customElements.define("radio-info", RadioInfo);
 
 customElements.define("radio-utentlist", RadioUtentList);
+customElements.define("radio-position", Radioposition);
 
 customElements.define("radio-choice", RadioChoice);
 
@@ -1354,6 +1610,7 @@ customElements.define("radio-speaker", RadioSpeaker);
 customElements.define("radio-antenna", RadioAntenna);
 
 customElements.define("display-frequence", DisplayFrequence);
+customElements.define("radio-spetrefrequence", SpetreFrequence);
 
 customElements.define("radio-spectrum", RadioSpectrum);
 

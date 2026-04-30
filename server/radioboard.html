@@ -1,4 +1,4 @@
-<div style="aspect-ratio: 9 / 5;width: 100%;background-color: #000;color: #0f0;font-family: Arial, sans-serif;padding: 20px;border-radius: 10px;text-align: center;box-sizing: border-box;">
+<div class="radioboard" frequence style="aspect-ratio: 9 / 5;width: 100%;background-color: #000;color: #0f0;font-family: Arial, sans-serif;padding: 20px;border-radius: 10px;text-align: center;box-sizing: border-box;">
     <style>
 	button {margin: 5px;padding: 10px 15px;background-color: #555;color: #0f0;border: none;border-radius: 4px;cursor: pointer;}
 	button:hover {background-color: #003399;}
@@ -7,6 +7,10 @@
 	.digit {word-spacing: -5px;cursor: pointer;user-select: none;}
     .separator {word-spacing: -5px;font-weight: bold;}
 	button.inattivo {pointer-events: none;opacity: 0.5; /* opzionale, per far capire che è disattivo */}
+	.radioboard display-frequence{display: none;}
+	.radioboard radio-spetrefrequence{display: none;}
+	.radioboard[frequence] display-frequence {display: flex;}
+	.radioboard[spetrefrequence] radio-spetrefrequence {display: flex;height:8vw;margin-bottom: 10px;}
 
     </style>
 	<!-- Indicators -->
@@ -27,7 +31,7 @@
 	</div>
 
     <!-- Frequency Display -->
-  <display-frequence style="display: flex;justify-content: center;align-items: center;gap: 2px;font-size: calc(8vw);font-weight: bold;margin-bottom: 10px;" id="frequencyDisplay" VFO="VFOA frequency">
+  <display-frequence style="justify-content: center;align-items: center;gap: 2px;font-size: calc(8vw);font-weight: bold;margin-bottom: 10px;" id="frequencyDisplay" VFO="VFOA frequency">
     <!-- Individual spans for digits -->
     <span class="digit" id="d1">1</span>
     <span class="digit" id="d2">4</span>
@@ -41,6 +45,7 @@
     <span class="digit" id="d8">0</span>
     <span class="digit" id="d9">0</span>
   </display-frequence>
+  <radio-spetrefrequence></radio-spetrefrequence>
     <div style=" font-size: calc(3vw);" id="clarifier">0.00</div>
     <div class="keyboard-container">
       <!-- Left Side Buttons -->
