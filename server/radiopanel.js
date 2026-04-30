@@ -854,7 +854,6 @@ class RadioSpeaker extends HTMLElement {
 
 	
 	mixer(open = true){
-		event.preventDefault();
 		console.log("click!!");
 		
 		let mix = this.closest("radio-panel").querySelector(".radio-mixer")
@@ -889,12 +888,12 @@ class RadioSpeaker extends HTMLElement {
 			curs2.setbound(0,10);
 			
 			curs.style.height="20px";
-			curs2.style.height="20px";
+			curs2.style.height="150px";
 			curs.style.width="300px";
-			curs2.style.width="150px";
-			curs2.style.left="310px";
-			curs2.style.top="-85px";
-			curs.style.top="-20px";
+			curs2.style.width="20px";
+			curs2.style.left="300px";
+			curs2.style.top="-150px";
+			curs.style.top="-150px";
 			curs.update=()=>{
 				if(this.filters.lp)this.filters.lp.frequency.value=mix.hasAttribute("inverted")?curs.valueMin:curs.valueMax;
 				if(this.filters.hp)this.filters.hp.frequency.value=mix.hasAttribute("inverted")?curs.valueMax:curs.valueMin;
@@ -1039,13 +1038,26 @@ class Radiocursor extends HTMLElement {
     this.shadowRoot.innerHTML = `<style>
 		.radio-mixer {position: absolute;inset: 0; /* top:0; right:0; bottom:0; left:0 */background: rgba(0,0,0,0); /* opzionale */pointer-events: auto; /* cattura i click */}
 		.range-container {position: relative;width: 100%;height: 100%;}
-		.range-container input[type="range"] {position: absolute;left: 0;width: 100%;pointer-events: none;-webkit-appearance: none;background: none;}
+		.range-container input[type="range"] {touch-action: none;position: absolute;left: 0;width: 100%;height: 100%;pointer-events: none;-webkit-appearance: none;background: none;}
 		.range-container input[type="range"]::-webkit-slider-thumb {-webkit-appearance: none;pointer-events: auto;width: 16px;height: 16px;border-radius: 50%;background: #fff;border: 2px solid #000;}
 		.range-track {position: absolute;top: 50%;left: 0;width: 100%;height: 4px;background: #888;transform: translateY(-50%);}
 		.range-track::after {content: "";position: absolute;top: 0;height: 100%;background: #4caf50; /* colore tra min e max */left: var(--min, 0%);right: calc(100% - var(--max, 100%));}
 		.radio-mixer[inverted] .range-track {background: #4caf50;}
 		.radio-mixer[inverted] .range-track::after {background: #888;}
 		:host([nomin]) #min {display:none;}
+		:host([vertical]) .range-container input[type="range"]{writing-mode: sideways-lr;}
+		:host([vertical]) .range-track {
+			height: 100%;
+			width: 4px;
+			left: 50%;
+		}
+		:host([vertical]) .range-track::after {
+		  bottom: var(--min,0%);
+		  top: calc(100% - var(--max,100%));
+		  left: 0;
+		  right: 0;
+		  height: auto;
+		}
 
 	</style><div class="radio-mixer">
         <div class="range-container">
@@ -1059,9 +1071,9 @@ class Radiocursor extends HTMLElement {
 	new MutationObserver(mutations => {
 		for (const m of mutations) {
 			if (this.hasAttribute("vertical")) {
-			this.style.transform="translateX(-50%) rotate(-90deg)";
+			//this.style.transform="translateX(-50%) rotate(-90deg)";
 		  } else {
-			this.style.transform="";
+			//this.style.transform="";
 		  }
 	    }
 	}).observe(this, {
@@ -1074,6 +1086,7 @@ class Radiocursor extends HTMLElement {
 	
 	//this.querySelector()
     this.track = this.shadowRoot.querySelector(".range-track");
+    this.container = this.shadowRoot.querySelector(".range-container");
   }
   connectedCallback() {
 	this.style.position="relative";
@@ -1081,10 +1094,11 @@ class Radiocursor extends HTMLElement {
     this.minInput.addEventListener("input", () => this.updateTrack());
     this.maxInput.addEventListener("input", () => this.updateTrack());
     this.updateTrack();
+
   }
 
   updateTrack() {
-	if(this.hasAttribute("nomin"))this.minInput.value=this.minInput.min;
+	if(this.hasAttribute("nomin"))this.minInput.value=this.minInput.max;
     let minVal = parseInt(this.minInput.value);
     let maxVal = parseInt(this.maxInput.value);
 	
