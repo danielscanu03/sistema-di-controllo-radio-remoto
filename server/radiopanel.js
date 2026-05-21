@@ -137,6 +137,8 @@ class RadioPanel extends HTMLElement {
 		
 		setionU.appendChild(utentlist);
 		setionU.appendChild(position);
+		
+		
 		this.appendChild(setionU);
 		this.appendChild(document.createElement("radio-board"));
 		let radioinfo = document.createElement("radio-info");
@@ -250,6 +252,7 @@ class RadioPanel extends HTMLElement {
 				let uniqueList = hostsma.map(item => {if (!counter[item]) {counter[item] = 1;return item;} else {counter[item]++;return `${item} (${counter[item]})`;}});
 				choice.items = {host:uniqueList};
 				choice.emitChoice= async (scelta) => {
+					this.settings["host"]=hostsmacodes[scelta.host.index];
 					this.remoteradio=hosts.hosts[scelta.host.index].codelogin
 					this.replaceChildren();
 					await this.start();
@@ -525,10 +528,6 @@ class SpetreFrequence extends HTMLElement{
 			  border: 2px solid #000;
 			  border-radius: 2px;
 			}
-
-			
-			
-			
 		`;
 		let spetre =  document.createElement("radio-spectrum");
 		let frequence =  document.createElement("input");
@@ -717,24 +716,33 @@ class RadioUtentList extends HTMLElement {
 		let Unum = document.createElement("div");
 		let Unum2 = document.createElement("div");
 		let style = document.createElement("style");
+		let sharelink = document.createElement("button");
 		style.innerHTML = `
 		Ulist {display: none;}
 		radio-utentlist {display: block;}
 		radio-utentlist[open] Ulist {display: block;position:relative;}
 		radio-utentlist[open] img {display: block;width:20%;left:40%;}
-		radio-utentlist[connected]:not([open]) img {display: block;left:20%;}
+		radio-utentlist[connected]:not([open]) img {display: block;left:30%;width:30%;}
 		radio-utentlist img {display:block;width:40%;left:60%;position:relative;}
 		radio-utentlist[B] img {pointer-events:none;}
 		radio-utentlist span {color: #0f0;display: block;}
 		.auto-number {display:none;}
 		radio-utentlist[connected]:not([open]) .auto-number {width: 40%;height: 40%;left: 60%;top: 0%;display: flex;position: absolute;align-items: center;justify-content: center;}
 		.auto-number .num{font-size: clamp(10px, 10vw, 1000px);color: red;}
+		
+		radio-utentlist #sharelink {margin:0px;width: 40%;height: 40%;left: 20%;top: 0%;display: flex;position: absolute;align-items: center;justify-content: center;}
+		radio-utentlist[connected] #sharelink {left: 0%;width:30%;height:30%;}
+		radio-utentlist[open] #sharelink {display: none;}
+		
 		`;
 		
 		img.id = "icon"; 
 		img.src="/immagini/utents.svg";
+		sharelink.innerHTML="🔗";
+		sharelink.id="sharelink";
 		this.style.overflow= "hidden";
 		this.appendChild(style);
+		this.appendChild(sharelink);
 		this.appendChild(img);
 		this.appendChild(Ulist);
 		this.appendChild(Unum);
@@ -744,6 +752,24 @@ class RadioUtentList extends HTMLElement {
 		Unum2.innerHTML="45";
 		this.style.width="100%";
 		this.toggleAttribute("B",true);
+		
+		sharelink.onclick=async ()=>{
+			  const argoments = "?connectiontype=guest&host=";
+			  const code = await requestSigninCode();
+			  const connection = this.closest("radio-panel").settings.connectiontype=="hosting"?code:this.closest("radio-panel").settings.host;
+			  const url = location.origin + location.pathname; // oppure il tuo link personalizzato
+			  if (navigator.share) {
+				navigator.share({
+				  title: "Condividi link",
+				  text: "Guarda questo:",
+				  url: url+argoments+connection
+				});
+			  } else {
+				// fallback
+				navigator.clipboard.writeText(url);
+				alert("Link copiato negli appunti");
+			  }
+		};
 		
 
 		const ro = new ResizeObserver(entries => {
@@ -1354,7 +1380,6 @@ class Radiocursor extends HTMLElement {
     this.minInput.addEventListener("input", () => this.updateTrack());
     this.maxInput.addEventListener("input", () => this.updateTrack());
     this.updateTrack();
-
   }
 
   updateTrack() {
