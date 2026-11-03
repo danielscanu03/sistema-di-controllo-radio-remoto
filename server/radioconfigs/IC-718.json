@@ -1,0 +1,347 @@
+{
+    "SerialSpeed": "9600",
+    "stopBits": "1",
+    "parity": "none",
+    "dataBits": "8",
+    "type": "binary",
+    "awaitstart": [254, 254],
+    "awaitend": [253],
+    "awaitms": 200,
+    "struct": [{
+            "param": "start",
+            "length": 2
+        }, {
+            "param": "to",
+            "length": 1
+        }, {
+            "param": "from",
+            "length": 1
+        }, {
+            "param": "command",
+            "length": 1
+        }, {
+            "param": "...",
+            "length": "..."
+        }, {
+            "param": "end",
+            "length": 1
+        }
+    ],
+    "inforequest": [
+        [254, 254, 94, 224, 3, 253],
+        [254, 254, 94, 224, 4, 253]
+    ],
+    "frequencerequest": [254, 254, 224, 94, 5, 0, 0, 1, 39, 0, 253],
+    "splitcmd": 1,
+    "commands": {
+        "0": {
+            "cmd": [0],
+            "readreqsimp": "",
+            "readformat": "",
+            "setformat": "",
+            "answersimp": "",
+            "answerformat": [[{
+                        "param": "start",
+                        "length": 2
+                    }, {
+                        "param": "P1",
+                        "length": 1
+                    }, {
+                        "param": "P2",
+                        "length": 1
+                    }, {
+                        "param": "command",
+                        "length": 1
+                    }, {
+                        "param": "end",
+                        "length": 1
+                    }
+                ], [{
+                        "param": "start",
+                        "length": 2
+                    }, {
+                        "param": "P1",
+                        "length": 1
+                    }, {
+                        "param": "P2",
+                        "length": 1
+                    }, {
+                        "param": "command",
+                        "length": 1
+                    }, {
+                        "param": "P3",
+                        "length": 5
+                    }, {
+                        "param": "end",
+                        "length": 1
+                    }
+                ]],
+            "P1": "PC",
+            "P2": "RADIO",
+            "P3": "VFOA frequency"
+        },
+        "1": {
+            "cmd": [1],
+            "readreqsimp": "",
+            "readformat": "",
+            "setformat": "",
+            "answersimp": "",
+            "answerformat": [{
+                    "param": "start",
+                    "length": 2
+                }, {
+                    "param": "P1",
+                    "length": 1
+                }, {
+                    "param": "P2",
+                    "length": 1
+                }, {
+                    "param": "command",
+                    "length": 1
+                }, {
+                    "param": "P3",
+                    "length": 2
+                }, {
+                    "param": "end",
+                    "length": 1
+                }
+            ],
+            "P1": "PC",
+            "P2": "RADIO",
+            "P3": "VFOA MODE"
+        },
+        "3": {
+            "cmd": [3],
+            "readreqsimp": "",
+            "readformat": [{
+                    "param": "start",
+                    "length": 2
+                }, {
+                    "param": "P1",
+                    "length": 1
+                }, {
+                    "param": "P2",
+                    "length": 1
+                }, {
+                    "param": "command",
+                    "length": 1
+                }, {
+                    "param": "end",
+                    "length": 1
+                }
+            ],
+            "setformat": "",
+            "answersimp": "",
+            "answerformat": [[{
+                        "param": "start",
+                        "length": 2
+                    }, {
+                        "param": "P1",
+                        "length": 1
+                    }, {
+                        "param": "P2",
+                        "length": 1
+                    }, {
+                        "param": "command",
+                        "length": 1
+                    }, {
+                        "param": "end",
+                        "length": 1
+                    }
+                ], [{
+                        "param": "start",
+                        "length": 2
+                    }, {
+                        "param": "P2",
+                        "length": 1
+                    }, {
+                        "param": "P1",
+                        "length": 1
+                    }, {
+                        "param": "command",
+                        "length": 1
+                    }, {
+                        "param": "P3",
+                        "length": 5
+                    }, {
+                        "param": "end",
+                        "length": 1
+                    }
+                ]],
+            "P1": "PC",
+            "P2": "RADIO",
+            "P3": "VFOA frequency"
+        },
+        "4": {
+            "cmd": [4],
+            "readreqsimp": "",
+            "readformat": [{
+                    "param": "start",
+                    "length": 2
+                }, {
+                    "param": "P1",
+                    "length": 1
+                }, {
+                    "param": "P2",
+                    "length": 1
+                }, {
+                    "param": "command",
+                    "length": 1
+                }, {
+                    "param": "end",
+                    "length": 1
+                }
+            ],
+            "setformat": "",
+            "answersimp": "",
+            "answerformat": [[{
+                        "param": "start",
+                        "length": 2
+                    }, {
+                        "param": "P1",
+                        "length": 1
+                    }, {
+                        "param": "P2",
+                        "length": 1
+                    }, {
+                        "param": "command",
+                        "length": 1
+                    }, {
+                        "param": "end",
+                        "length": 1
+                    }
+                ], [{
+                        "param": "start",
+                        "length": 2
+                    }, {
+                        "param": "P2",
+                        "length": 1
+                    }, {
+                        "param": "P1",
+                        "length": 1
+                    }, {
+                        "param": "command",
+                        "length": 1
+                    }, {
+                        "param": "P3",
+                        "length": 2
+                    }, {
+                        "param": "end",
+                        "length": 1
+                    }
+                ]],
+            "P1": "PC",
+            "P2": "RADIO",
+            "P3": "VFOA MODE"
+        },
+        "5": {
+            "cmd": [5],
+            "readreqsimp": "",
+            "readformat": "",
+            "setformat": [{
+                    "param": "start",
+                    "length": 2
+                }, {
+                    "param": "P1",
+                    "length": 1
+                }, {
+                    "param": "P2",
+                    "length": 1
+                }, {
+                    "param": "command",
+                    "length": 1
+                }, {
+                    "param": "P3",
+                    "length": 5
+                }, {
+                    "param": "end",
+                    "length": 1
+                }
+            ],
+            "answersimp": "",
+            "answerformat": [{
+                    "param": "start",
+                    "length": 2
+                }, {
+                    "param": "P1",
+                    "length": 1
+                }, {
+                    "param": "P2",
+                    "length": 1
+                }, {
+                    "param": "command",
+                    "length": 1
+                }, {
+                    "param": "P3",
+                    "length": 5
+                }, {
+                    "param": "end",
+                    "length": 1
+                }
+            ],
+            "P1": "PC",
+            "P2": "RADIO",
+            "P3": "VFOA frequency",
+            "start": "start",
+            "command": "command",
+            "end": "end"
+        },
+        "6": {
+            "cmd": [6],
+            "readreqsimp": "",
+            "readformat": "",
+            "setformat": [{
+                    "param": "start",
+                    "length": 2
+                }, {
+                    "param": "P1",
+                    "length": 1
+                }, {
+                    "param": "P2",
+                    "length": 1
+                }, {
+                    "param": "command",
+                    "length": 1
+                }, {
+                    "param": "P3",
+                    "length": 2
+                }, {
+                    "param": "end",
+                    "length": 1
+                }
+            ],
+            "answersimp": "",
+            "answerformat": "",
+            "P1": "PC",
+            "P2": "RADIO",
+            "P3": "VFOA MODE",
+            "start": "start"
+        }
+    },
+    "information": {
+        "VFOA frequency": {
+            "decodeType": "BCD5",
+            "encodeType": "BCD5"
+        },
+        "VFOA MODE": {
+            "format": [[0, 1], [0, 2], [1, 2], [2, 1], [3, 1], [4, 1], [2, 2], [3, 2], [4, 2], [7, 2], [8, 2]],
+            "decode": ["WLSB", "LSB", "USB", "AM", "WCW", "WRTTW", "AM-N", "CW", "RTTY", "CW-R", "RTTY-R"]
+        },
+        "start": {
+            "preset": [254, 254],
+            "must": ""
+        },
+        "command": {
+            "format": "command"
+        },
+        "end": {
+            "preset": [253],
+            "must": ""
+        },
+        "PC": {
+            "preset": [94],
+            "must": ""
+        }
+    },
+    "commandlist": {}
+}

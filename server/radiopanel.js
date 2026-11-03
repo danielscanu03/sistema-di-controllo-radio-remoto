@@ -1,21 +1,12 @@
-import { websoketA,websoketB,COM,Interpreter,requestSigninCode,sendErrorToServer,getPorts,SpectrumExtractor,storage,coordsToAddress } from '/tools.js';
+import { getConfig,websoketA,websoketB,COM,Interpreter,requestSigninCode,sendErrorToServer,getPorts,SpectrumExtractor,storage,coordsToAddress } from '/tools.js';
+import { RadioChoice } from '/startTools.js';
+import {  } from '/configurationpanel.js';
 
 window.onerror = function (message, source, lineno, colno, error) {
     sendErrorToServer(error || message);
 };
 
 
-async function getConfig(){
-	try {
-		const response = await fetch("/config.json");
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
-		}
-		return await response.json();
-	} catch (error) {
-		console.error("Error fetching config.json:", error);
-	}
-}
 async function setlisten(listen){
 	try {
 		const response = await fetch(`/listen?login=${(await requestSigninCode())}&set=${listen}`);
@@ -52,7 +43,7 @@ async function getclients(){
 
 function pickProps(source, props) {
     const result = {};
-    props.forEach(p => result[p] = source[p]);
+    if(source)props.forEach(p => {if(source[p])result[p] = source[p]});
     return result;
 }
 function isPrimitive(x) {
@@ -96,13 +87,18 @@ class RadioPanel extends HTMLElement {
 	}
 	
 	async start(){
-
+		if (this.json instanceof Promise) {
+			this.jsonConfig = await this.jsonConfig;
+		}
 		this.parent.style.backgroundColor = "black";
 		
 		let ant = document.createElement("radio-antenna");
 		if(this.settings["connectiontype"]=="hosting"){
-			this.settings["awaitms"]=this.jsonConfig.radio[this.settings.radio.value]["awaitms"];
-			this.settings["loopreq"]=this.jsonConfig.radio[this.settings.radio.value]["inforequest"];
+			
+			let radiosett = await this.jsonConfig.radio[this.settings.radio.value];
+			console.log(radiosett);
+			this.settings["awaitms"]=radiosett["awaitms"];
+			this.settings["loopreq"]=radiosett["inforequest"];
 			let mic = document.createElement("radio-mic")
 			this.appendChild(mic);
 			mic.changeIcon("speaker");
@@ -170,6 +166,7 @@ class RadioPanel extends HTMLElement {
 				}
 				
 			};
+			console.log(this.settings,flattenValues(this.settings));
 			let port = new COM(this.settings.com.coms[this.settings.COM.index],flattenValues(this.settings));
 			port.interpreter = (bytes) => interpreter.check(bytes,()=>port.drain(bytes));
 			port.traslate = (pack) => interpreter.traslate(pack.format,pack);
@@ -186,10 +183,15 @@ class RadioPanel extends HTMLElement {
 	}
 	
 	async setup(){
+		this.replaceChildren();
 		const windowparams = new URLSearchParams(window.location.search);
 		
 		const choice = document.createElement("radio-choice");
-		choice.items = {type:["hosting", "guest"]};
+		this.appendChild(choice);
+		console.log("options");
+		choice.options={type:{element:"choice-select"},emitChoice:{element:"choice-button",label:"Conferma scelta"}};
+		choice.items = {type:["hosting", "guest"],emitChoice:[]};
+		choice.addEventListener("buttonclick", () => {choice.emitChoice?.(choice.getCurrentSelection());});
 		choice.emitChoice=async (scelta) => {try{
 			//console.log(scelta.type);
 			this.settings["connectiontype"]=scelta.type.value;
@@ -197,36 +199,62 @@ class RadioPanel extends HTMLElement {
 				this.replaceChildren();
 				let com = {comsnam:[],coms:[]};
 				try{com = await getPorts();}catch (err){await sendErrorToServer(err);}
-				
+				await navigator.mediaDevices.getUserMedia({ audio: true });
 				let microphones = [];
 				let mics = [];
 				try{mics=(await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput");microphones = mics.map(obj => obj.label);}catch (err){console.log("???");}
-				
+				console.log(mics);
 				const choice = document.createElement("radio-choice");
+				this.appendChild(choice);
 				const advancedchoice = document.createElement("radio-choice");
-				choice.items = {radio:this.jsonConfig.Radio,audioin:microphones,COM:[...com.comsnam,"new"]};//
+				this.appendChild(advancedchoice);
+				choice.options = {radio:{element: "choice-select"},audioin:{element: "choice-select"},COM:{element: "choice-select"},emitChoice:{element:"choice-button",label:"Conferma scelta"}}
+				choice.items = {radio:[...this.jsonConfig.Radio,"custom"],audioin:microphones,COM:[...com.comsnam,"new"],emitChoice:[]};//
+				advancedchoice.options = {SerialSpeed:{element: "choice-select"},stopBits:{element: "choice-select"},parity:{element: "choice-select"},dataBits:{element: "choice-select"}}
 				advancedchoice.items = pickProps(this.jsonConfig,["SerialSpeed","stopBits","parity","dataBits"]);
-				
-				advancedchoice.noconferm=true;
 				advancedchoice.style.display="none";
+				choice.addEventListener("buttonclick", () => {choice.emitChoice?.(choice.getCurrentSelection());});
 				const advbutton = document.createElement("button");
 				advbutton.innerHTML="avanzate";
 				advbutton.addEventListener("click", () => {advancedchoice.style.display=advancedchoice.style.display=="none"?"":"none";});
 				
 				choice.changeEvent= async (key,value) => {
-					if(key=="radio")advancedchoice.setCurrentSelection(pickProps(this.jsonConfig.radio[value],["SerialSpeed","stopBits","parity","dataBits"]));
+					if(key=="radio"&&value=="custom"){
+						this.settings["radio"]="custom";
+						let customradio = this.querySelector("radio-customconfig");
+						this.replaceChildren();
+						if(!customradio)customradio = document.createElement("radio-customconfig");
+						this.appendChild(customradio);
+						customradio.setup().then(async (settings)=>{
+							Object.keys(advancedchoice.folder()._items).forEach((key)=>{
+								this.settings[key]=settings[key];
+							});
+							(await this.jsonConfig.radio)["custom"]=settings;
+							this.setup();
+						});
+						return;
+					}
+					if(key=="radio"){
+						let values = pickProps(await this.jsonConfig.radio[value],["SerialSpeed","stopBits","parity","dataBits"]);
+						values = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }]));
+						advancedchoice.setCurrentSelection(values);
+					}
 					if(key=="COM"&&value=="new"){
 						com = await getPorts(true);
 						choice.items.COM = [...com.comsnam,"new"];
-						choice.loadItemsIntoPanel();}
+						choice.loadItemsIntoPanel();
+					}
 				};
 				
-				this.appendChild(choice);
 				this.appendChild(advbutton);
-				this.appendChild(advancedchoice);
 				let value = this.jsonConfig.Radio[0];
-				advancedchoice.setCurrentSelection(pickProps(this.jsonConfig.radio[value],["SerialSpeed","stopBits","parity","dataBits"]));
-				
+				let values = pickProps({...await this.jsonConfig.radio[value],...this.settings},["SerialSpeed","stopBits","parity","dataBits"]);
+				values = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }]));
+				advancedchoice.setCurrentSelection(values);
+				let settings = {...this.settings};
+				settings = Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, { value }]));
+				choice.setCurrentSelection(settings);
+
 				choice.emitChoice=async (scelta) => {
 					this.settings = {...this.settings,...scelta,...advancedchoice.getCurrentSelection(),com,mics};
 					this.replaceChildren();
@@ -244,13 +272,16 @@ class RadioPanel extends HTMLElement {
 			if(scelta.type.value=="guest"){
 				this.replaceChildren();
 				const choice = document.createElement("radio-choice");
+				this.appendChild(choice);
 				let hosts = await getHosts()
 				console.log(hosts.hosts);
 				let hostsma = hosts.hosts.map(e => `${e.username} ${e.radio}`);
 				let hostsmacodes = hosts.hosts.map(item => item.codelogin);
 				let counter = {};
 				let uniqueList = hostsma.map(item => {if (!counter[item]) {counter[item] = 1;return item;} else {counter[item]++;return `${item} (${counter[item]})`;}});
-				choice.items = {host:uniqueList};
+				choice.options={host:{element: "choice-select"},emitChoice:{element:"choice-button",label:"Conferma scelta"}}
+				choice.items = {host:uniqueList,emitChoice:[]};
+				choice.addEventListener("buttonclick", () => {choice.emitChoice?.(choice.getCurrentSelection());});
 				choice.emitChoice= async (scelta) => {
 					this.settings["host"]=hostsmacodes[scelta.host.index];
 					this.remoteradio=hosts.hosts[scelta.host.index].codelogin
@@ -258,7 +289,6 @@ class RadioPanel extends HTMLElement {
 					await this.start();
 					
 				};
-				this.appendChild(choice);
 
 				if(windowparams.get("host")&&hostsmacodes.includes(windowparams.get("host"))){
 					let ind = hostsmacodes.indexOf(windowparams.get("host"))
@@ -268,9 +298,9 @@ class RadioPanel extends HTMLElement {
 				//let web = new websoketB();
 			}
 		} catch (error) {sendErrorToServer(error);}};
-		this.appendChild(choice);
 		
 		if(windowparams.get("connectiontype"))await choice.emitChoice({type:{value:windowparams.get("connectiontype")}});
+		if(this.settings["connectiontype"])await choice.emitChoice({type:{value:this.settings["connectiontype"]}});
 		//console.log(windowparams.get("connectiontype"));
 	}
 	
@@ -343,15 +373,15 @@ class RadioBoard extends HTMLElement {
         };
         this.parentElement.addEventListener("radio-radioinfo", this._listener);
 		
-		this.buttoncontrol = () => {
+		this.buttoncontrol = async () => {
 			let radiopanel = this.closest("radio-panel");
 			if (!radiopanel?.jsonConfig||!radiopanel?.settings.radio?.value) {
 				this.querySelectorAll("button").forEach(el => {el.className="inattivo";});
 				// Rimanda la chiamata finché il componente non è nel DOM
-				requestAnimationFrame(() => this.buttoncontrol());
+				requestAnimationFrame(async () => await this.buttoncontrol());
 				return;
 			}
-			let config = radiopanel.jsonConfig.radio[radiopanel.settings.radio.value];
+			let config = await radiopanel.jsonConfig.radio[radiopanel.settings.radio.value];
 			//console.log(config,this.querySelectorAll("radio-indicator"));
 			let buttons={}
 			this.querySelectorAll("button").forEach(el => {
@@ -364,6 +394,7 @@ class RadioBoard extends HTMLElement {
 			});
 			Object.entries(buttons).forEach(([key,list],i) => {
 				list.forEach((bt,i2) => {
+					if(!config.information[key]){bt.style.display="none";return;}
 					bt.innerHTML=config.information[key].decode[i2];
 					bt.id=config.information[key].decode[i2];
 					bt.className="";
@@ -582,10 +613,6 @@ class SpetreFrequence extends HTMLElement{
 	
 	
 }
-
-
-
-
 
 class Radioposition extends HTMLElement {
     constructor() {
@@ -899,6 +926,7 @@ class RadioMic extends HTMLElement {
 		const microphones = this.parentElement.settings.mics;
 		
 		this.microphone = microphones[this.parentElement.settings.audioin.index];
+		console.log(this.parentElement.settings);
 		this.stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: { exact: this.microphone.deviceId }}});
 
 		
@@ -1022,7 +1050,14 @@ class RadioAntenna extends HTMLElement {
 		newsocket.handlerclose = close => {
 			console.log(close);
 			this.disactive();
-			if(close.code==1006)this.active();
+			switch (close.code) {
+				case 1006: // connessione persa / rete
+				case 1011: // errore interno server
+				case 1012: // server in riavvio
+				case 1013: // server sovraccarico, riprova dopo
+					this.active();
+					break;
+			}
 		};
 		this.socket=newsocket;
 		
@@ -1499,123 +1534,58 @@ class RadioSpectrum extends HTMLElement {
   }
 }
 
-class RadioChoice extends HTMLElement {
+class RadioCustomConfig extends HTMLElement {
     constructor() {
         super();
-		this.items = {result:["A", "B"]};
-		this.noconferm=false;
     }
-	loadItemsIntoPanel() {
-		const choice = this.querySelector("#grid");
-
-		Object.entries(this.items).forEach(([key, list], index) => {
-
-
-			// Cerca se esiste già il select
-			let scroll = choice.querySelector(`select[data-key="${key}"]`);
-			let label  = choice.querySelector(`span[data-key="${key}"]`);
-
-			// Se non esiste, lo crea
-			if (!scroll) {
-				scroll = document.createElement("select");
-				scroll.className = "scroll-area";
-				scroll.dataset.key = key;
-
-				scroll.addEventListener("change", () => {
-					this.changeEvent?.(key, scroll.value);
-				});
-
-				choice.appendChild(scroll);
+	
+	connectedCallback() {
+		this.innerHTML = `
+		<style>
+			radio-customconfig {flex-direction: column;width: 100%;inset: 0; /* top:0; right:0; bottom:0; left:0 */background: rgba(0,0,0,1); /* opzionale */pointer-events: auto; /* cattura i click */}
+			radio-customconfig input[type="text"],button,select,span {height: min-content;margin: 5px;padding: 10px 15px;background-color: #555;color: #0f0;border-radius: 4px;cursor: pointer;}
+			radio-customconfig label {height: min-content;color: #0f0;}
+			radio-customconfig configuration-panel {height: min-content;margin: 5px;padding: 10px 15px;border: none;border-radius: 4px;}
+			radio-customconfig span{cursor: auto;}
+			radio-customconfig div[type="text"] {color: #0f0;display:flex;align-items="center";}
+			radio-customconfig ::-webkit-scrollbar {
+				width: 10px;
+				height: 10px;
 			}
-
-			// Se non esiste la label, la crea
-			if (!label) {
-				label = document.createElement("span");
-				label.dataset.key = key;
-				label.textContent = key;
-				choice.appendChild(label);
+			radio-customconfig ::-webkit-scrollbar-track {
+				background: #555;
 			}
-
-			// Posizionamento nella grid
-			scroll.style.gridRow = index + 1;
-			scroll.style.gridColumn = 2;
-
-			label.style.gridRow = index + 1;
-			label.style.gridColumn = 1;
-
-			// Aggiorna le opzioni SENZA duplicare
-			scroll.innerHTML = "";
-			list.forEach(item => {
-				const el = document.createElement("option");
-				el.value = item;
-				el.textContent = item;
-				scroll.appendChild(el);
-			});
-		});
+			radio-customconfig ::-webkit-scrollbar-thumb {
+				background: #0f0;
+				border-radius: 5px;
+			}
+			radio-customconfig ::-webkit-scrollbar-thumb:hover {
+				background: #0a0;
+			}
+		</style>
+		<button id="close" style="width:5%;aspect-ratio:1/1;">X</button>
+		<configuration-panel></configuration-panel>
+		`;
+		
 	}
-
-    connectedCallback() {
-        this.innerHTML = `
-            <style>
-                .scroll-area {width: 100%;max-width: 100%;min-width: 0;box-sizing: border-box;max-height: 200px;overflow-y: auto;border: 1px solid #ccc;padding: 8px;}
-                button {margin-top: 10px;}
-            </style>
-			<div id="grid" style="display: grid;">
-				<div id="confirmbox" style="display: flex;justify-content: center;"><button id="confirm" style="width: 50%;">Conferma scelta</button></div>
-			</div>
-        `;
+	setup(open=true){
 		
+		let configuration_panel = this.querySelector("configuration-panel");
+		if(!configuration_panel) configuration_panel = document.createElement("configuration-panel");
 		
-		const choice = this.querySelector("#grid");
-		
-		let cols = 2;
-		let rows = Object.keys(this.items).length+1;
-		if(this.noconferm)rows-=1;
-			
-		choice.style.gridTemplateColumns = `25% repeat(${cols - 1}, 1fr)`;
-		//choice.style.gridTemplateColumns = `repeat(${cols}, minmax(calc(100% / ${cols}), 1fr))`;
-		choice.style.gridAutoRows = `calc(100% / ${rows})`;
-		choice.style['min-height'] = "100%";
-		
-		if(this.noconferm)this.querySelector("#confirmbox").style.visibility="hidden";
-		this.querySelector("#confirmbox").style.gridRow=`${rows}`;
-		this.querySelector("#confirmbox").style.gridColumn =`1 / span 2`;
-		
-        this.querySelector("#confirm")
-            .addEventListener("click", () => {
-				const scelta = this.getCurrentSelection();
-				this.emitChoice?.(scelta);
+		configuration_panel.confs = this.closest("radio-panel").jsonConfig;
+		//let confs = this.closest("radio-panel").jsonConfig;
+		//console.log(Object.entries(confs["radiopackagelist"]).map(([n,_])=>n));
+		if(open){
+			configuration_panel.setup();
+			this.awaits = new Promise(resolve =>{
+				this.querySelector("#close").onclick = ()=>{this.setup(false);resolve(configuration_panel.settings);};
 			});
-		
-		this.loadItemsIntoPanel();
-    }
-
-    getCurrentSelection() {
-		const result = {};
-
-		this.querySelectorAll(".scroll-area").forEach(select => {
-			const key = select.dataset.key;   // "nome", "colore", "taglia"
-			const value = select.value;       // valore scelto
-			const index = select.selectedIndex; // es: 1
-
-			result[key] = { value, index };
-
-		});
-
-		return result;
-	}
-	setCurrentSelection(data) {
-		this.querySelectorAll(".scroll-area").forEach(select => {
-			const key = select.dataset.key;
-			const entry = data[key];
-
-			if (!entry) return;
-
-			select.value = entry;
-		});
+		}
+		this.style.display = open?"flex":"none";
+		return this.awaits;
 	}
 }
-
 
 customElements.define("radio-mic", RadioMic);
 
@@ -1624,7 +1594,10 @@ customElements.define("radio-info", RadioInfo);
 customElements.define("radio-utentlist", RadioUtentList);
 customElements.define("radio-position", Radioposition);
 
-customElements.define("radio-choice", RadioChoice);
+if (!customElements.get("radio-choice")) {
+  customElements.define("radio-choice", RadioChoice);
+}
+customElements.define("radio-customconfig", RadioCustomConfig);
 
 customElements.define("radio-panel", RadioPanel);
 

@@ -64,7 +64,7 @@ export async function sendErrorToServer(err) {
 
 export let storage = {signin_code:null,signin_username:null,session_code:null,position:{lat:0,lon:0}};
 
-export async function requestSigninCode() {
+export async function requestSigninCode(part) {
     // 1) Se esiste già in cache, lo ritorno subito
 	const url = new URL(window.location);
 	const existed = url.searchParams.has("resetusername");
@@ -83,6 +83,7 @@ export async function requestSigninCode() {
 		storage.signin_username=awaits();
 		storage.signin_username.then((cacheduser) => localStorage.setItem("signin_username", cacheduser));
 	}
+	if(part==1)return await storage.signin_username;
     if (!storage.signin_code){
 		let awaits = async () => {
 			let local = localStorage.getItem("signin_code");
@@ -102,6 +103,7 @@ export async function requestSigninCode() {
 		storage.signin_code=awaits();
 		storage.signin_code.then((cached)=>localStorage.setItem("signin_code", cached));
 	}
+	if(part==2)return await storage.signin_code;
 	if (!storage.session_code){
 		let awaits = async () => {
 			try {
@@ -117,6 +119,7 @@ export async function requestSigninCode() {
 		};
 		storage.session_code=awaits();
 	}
+	if(part==3)return await storage.session_code;
     return `${await storage.signin_code}-${await storage.session_code}`;
 }
 
@@ -186,6 +189,122 @@ class messsageHandle{
 		return ret;
 	}
 }
+
+
+function recaller(radioconfigs,config){
+	let recallprox = new Proxy(radioconfigs,{get:async (_,op)=>{
+			//console.log(op);
+			if(op==="entries")return Object.entries(radioconfigs);
+			//console.log(op);
+			if(op==="keys")return ()=>{console.log("???");return Object.keys(radioconfigs);};
+			if(op==="toJSON"){
+				console.log("eeeeee");
+				
+				return null;
+			}
+			if(op==="then")return (resolve, reject) => {
+				resolve(recallprox);
+			};
+			if (op === "includes") return (F)=>radioconfigs.includes(F);
+			if(typeof radioconfigs[op] == "string"){
+				const configresponse = await fetch(radioconfigs[op]);
+				if (!configresponse.ok) {
+					throw new Error(`HTTP error! status: ${configresponse.status}`);
+				}
+				radioconfigs[op] = await configresponse.json();
+			}
+			let confs = radioconfigs[op];
+			return new Proxy(confs,{get:(_,arg)=>{
+					
+					//console.log(arg);
+					if(arg==="then")return undefined;
+					if(arg==="entries")return ([...Object.entries(confs),...Object.entries((config&&"protocol" in confs&&confs.protocol in config.protocols)?config.protocols[confs.protocol]:[])]);
+					//console.log(arg);
+					if(arg==="keys")return ()=>{console.log("???");return ([...Object.keys(confs),...Object.keys((config&&"protocol" in confs&&confs.protocol in config.protocols)?config.protocols[confs.protocol]:[])]);};
+					
+					if(arg==="isProtocol")return (item)=>!Object.prototype.hasOwnProperty.call(confs, item);
+					
+					if(arg==="includes") {
+						return (key) => {
+							// controlla target
+							if (Object.prototype.hasOwnProperty.call(confs, key)) return true;
+
+							// controlla protocol fallback
+							if (config && "protocol" in confs) {
+								const proto = config.protocols[confs.protocol];
+								if (proto && key in proto) return true;
+							}
+
+							return false;
+						};
+					}
+					if (typeof arg !== "string") return undefined;
+					if(Object.prototype.hasOwnProperty.call(confs, arg))return confs[arg];
+					if(config&&"protocol" in confs){
+					const proto = config.protocols[confs.protocol];
+					if (proto && arg in proto) {
+						return proto[arg];
+					}}
+					if(arg!="toJSON")console.error(arg,"not found");
+					return undefined;
+			}});
+		},set:(_,arg,value)=>{
+			radioconfigs[arg]=value;
+			return true;
+		}});
+	return recallprox;
+}
+
+
+
+export async function getConfig(){
+	try {
+		const response = await fetch("/config.json");
+		const response2 = await fetch("/Packages?login="+(await requestSigninCode()));
+		if (!response.ok||!response2.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+		let config = await response.json();
+		let Packages = await response2.json();
+		
+		let radiolist = config.Radio;
+		let radioconfigs = config.radio;
+		let radioprotocols = config.protocols;
+		config.radio = recaller(radioconfigs,config);
+		config.protocols = recaller(radioprotocols,config);
+		let listsradio = Object.entries(Packages);
+		Packages["packages"]["default"]={};
+		radiolist.forEach(name=>{Packages["packages"]["default"][name]=radioconfigs[name]});
+		Object.entries(Packages["packages"]).forEach(([pack,list])=>{
+			Packages["packages"][pack]= recaller(list,config);
+		});
+		config["packages"]=Packages["packages"];
+		config["configoptions"]=Packages["options"];
+		config["configsections"]=Packages["sections"];
+		let own = await requestSigninCode(2);
+		if(!(own in Packages["packages"]))Packages["packages"][own]={}
+		config["radiopackagelist"]=Object.entries(Packages["packages"]).map(([name,val])=>name==own?"own":name);
+		
+		
+		config["packages"]["own"]=new Proxy({},{get:(_,i)=>{
+			if(i==="includes")return (F)=>Object.hasOwn(config["packages"][own], F)
+			if(i==="keys"&&!config["packages"][own][i])return ()=>{return Object.keys(config["packages"][own]);};
+			return config["packages"][own][i];
+		},set:(target, key, value)=>{
+			config["packages"][own][key]=value;
+			config["packages"][own]= recaller(config["packages"][own],config);
+			console.log(target, key, value,own);
+			console.log(config["packages"]);
+			console.log(config["radiopackagelist"]);
+			return true;
+		}});
+		console.log(config);
+		return config;
+	} catch (error) {
+		console.error("Error fetching config.json:", error);
+	}
+}
+
 
 class MySocket extends WebSocket {
     constructor(url) {
@@ -389,9 +508,13 @@ class websoketB extends websoketR{
 class Interpreter{
 	constructor(Json,radio) {
 		this.json=Json.radio[radio];
+		if (this.json instanceof Promise) {
+			this.json.then(res=>{this.json=res;});
+		}
 	}
 	
 	check(buffer,reset){
+		//console.log(buffer);
 		const awaitStart = toIntArray(this.json["awaitstart"]);
 		const awaitEnd   = toIntArray(this.json["awaitend"]);
 		
@@ -693,14 +816,17 @@ class COM{
 			for (const biit of byte) {
 				this.buff.push(biit);
 			}
+			//console.log(this.buff);
 			this.interpreter?.(this.buff);
 		}})).catch(err => {
+			console.log(err);
 			sendErrorToServer(err);
 			this._restartReader();
 		});};
 		this._restartReader();
 		// Write the message to the serial port
 		//await writer.write(new TextEncoder().encode("IF;OI;FT;RM0;SC;"));
+		
 		this.interval = setInterval(() => this._processQueue(), this.options.awaitms);
 		this.interval2 = setInterval(() => this._processR(), this.options.awaitms*20);
 	}

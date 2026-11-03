@@ -5,16 +5,32 @@ from BufferManager import BufferManager
 
 
 class ClientData:
-    def __init__(self, username="", size=0, connected=True):
-        self.username = username
-        self.settedusername = None
-        self.lastMessageSize = size
-        self.isConnected = connected
-        self.codelogin = None
-        self.connections = []
-        self.typewb = ""
-        self.radio = ""
-        self.clear()
+    def __init__(self, username="", size=0, connected=True,codelogin=None,path="clients.json"):
+        if codelogin:
+            if os.path.exists(path):
+                with open(path, "r") as f:
+                    try:
+                        db = json.load(f)
+                    except Exception:
+                        return
+            self.codelogin = codelogin
+            code, session = self.getcode()
+            if db[code]:
+                print(self)
+                print(db[code])
+                self.settedusername = db[code]["settedusername"]
+                if db.get(code) and db[code]["sessions"] and db[code]["sessions"].get(session):
+                    self.username = db[code]["sessions"][session]["username"] 
+        else:
+            self.username = username
+            self.settedusername = None
+            self.lastMessageSize = size
+            self.isConnected = connected
+            self.codelogin = None
+            self.connections = []
+            self.typewb = ""
+            self.radio = ""
+            self.clear()
     def getcode(self):
         sep = self.codelogin.find('-') if self.codelogin else None
         return (self.codelogin[:sep],self.codelogin[sep+1:]) if sep else None
@@ -45,8 +61,9 @@ class ClientData:
         if not populate:
             return {
                 "settedusername": self.settedusername,
-                "expires_at": self.expires_at,
+                "expires_at": self.expires_at*30,
                 "sessions":{f"{self.getcode()[1]}":{
+                    "expires_at": self.expires_at,
                     "username": self.username,
                     "codelogin": self.codelogin,
                     "isConnected": self.isConnected,
@@ -56,9 +73,10 @@ class ClientData:
             }
         self.settedusername=self.settedusername if self.settedusername else populate["settedusername"]
         populate["settedusername"]=self.settedusername
-        populate["expires_at"]= self.expires_at
+        populate["expires_at"]= self.expires_at*30
         if self.isConnected:
             populate["sessions"][self.getcode()[1]]={
+                "expires_at": self.expires_at,
                 "username": self.username,
                 "codelogin": self.codelogin,
                 "isConnected": self.isConnected,
@@ -99,7 +117,11 @@ class ClientData:
         
         now = time.time()
         newdb = {k: v for k, v in db.items() if v.get("expires_at", 0) > now}
-
+        
+        for code, info in db.items():
+            if info["sessions"]:
+                info["sessions"] = {k: v for k, v in info["sessions"].items() if v.get("expires_at", 0) > now}
+        os.makedirs(os.path.dirname(path), exist_ok=True) if os.path.dirname(path)!="" else None
         with open(path, "w") as f:
             json.dump(newdb, f, indent=4)
 

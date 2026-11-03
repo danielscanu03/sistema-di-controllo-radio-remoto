@@ -425,6 +425,44 @@ async def websocket_b(websocket: WebSocket):
     except WebSocketDisconnect:
         await chatHandler.onDisconnect(websocket, "/websocketB")
 
+@app.get("/Packages")
+def listen(request: Request):
+    login = request.query_params.get("login")
+    add = request.query_params.get("add")
+    remove = request.query_params.get("remove")
+    client=chatHandler.clients.get(login)[1]
+    returns={"state": "OK"}
+    if not client:
+        client=ClientData(codelogin=login)
+    print(login,client)
+    path="server/custompackage/pakagelist.json"
+    db = {"clients":{},"packages":{}}
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            try:
+                db = json.load(f)
+            except Exception:
+                pass
+    code, session = client.getcode()
+    if add:
+        if not db["clients"].get(code):
+            db["clients"][code]={"packages":[]}
+        db["clients"][code]["packages"].append(add)
+    if remove and db["clients"].get(code):
+        db["clients"][code]["packages"].remove(remove)
+    returns["packages"]=db["packages"]
+    returns["options"]=db["options"]
+    returns["sections"]=db["sections"]
+    if db["clients"].get(code):
+        returns["ownpakages"]=db["clients"][code]["packages"]
+        pass
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+            json.dump(db, f, indent=4)
+    
+    return returns
+    
+
 
 app.mount("/",StaticFiles(directory="server"),name="server")
 

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>controller radio</title>
+	<style>
+		.container {
+		  width: 80%;
+		  margin: auto;
+		  padding: 20px;
+		  background: #fff;
+		  border: 1px solid #ddd;
+		  border-radius: 8px;
+		  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		}
+		
+		
+		
+	</style>
+</head>
+<body>
+	<div class="container">
+	</div>
+    <script src="/configurationpanel.js" type="module"></script>
+    <script type="module">
+		await customElements.whenDefined("configuration-panel");
+		let con = document.querySelector(".container");
+		let configuration_panel = document.createElement("configuration-panel");
+		con.appendChild(configuration_panel);
+		await configuration_panel.nativeConfig();
+		configuration_panel.setup();
+	</script>
+</body>
+</html>

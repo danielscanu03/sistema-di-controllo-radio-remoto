@@ -1,0 +1,30 @@
+{
+	"type": "binary",
+    "awaitstart": [254, 254],
+    "awaitend": [253],
+    "awaitms": 200,
+    "struct": [{
+            "param": "start",
+            "length": 2
+        }, {
+            "param": "to",
+            "length": 1
+        }, {
+            "param": "from",
+            "length": 1
+        }, {
+            "param": "command",
+            "length": 1
+        }, {
+            "param": "...",
+            "length": "..."
+        }, {
+            "param": "end",
+            "length": 1
+        }
+    ],
+    "inforequest": [
+        [254, 254, 94, 224, 3, 253],
+        [254, 254, 94, 224, 4, 253]
+    ]
+}

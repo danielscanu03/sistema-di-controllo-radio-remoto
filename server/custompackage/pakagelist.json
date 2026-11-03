@@ -1,0 +1,158 @@
+{
+    "clients": {
+        "server": [
+            "S_default"
+        ]
+    },
+    "packages": {
+        "S_default": {
+            "COM": {
+                "SerialSpeed": "4800",
+                "stopBits": "1",
+                "parity": "none",
+                "dataBits": "8",
+                "type": "text",
+                "commands": {},
+                "information": {},
+                "commandlist": {}
+            }
+        }
+    },
+    "sections": {
+        "COM": [
+            "SerialSpeed",
+            "stopBits",
+            "parity",
+            "dataBits"
+        ],
+        "protocols": [
+            "type",
+            "protocol"
+        ]
+    },
+    "options": {
+        "SerialSpeed": {
+            "sets": [
+                "1200",
+                "2400",
+                "4800",
+                "9600",
+                "19200",
+                "38400",
+                "57600",
+                "115200"
+            ],
+            "element": {
+                "element": "choice-select"
+            }
+        },
+        "stopBits": {
+            "sets": [
+                "1",
+                "2"
+            ],
+            "element": {
+                "element": "choice-select"
+            }
+        },
+        "parity": {
+            "sets": [
+                "none",
+                "even",
+                "odd"
+            ],
+            "element": {
+                "element": "choice-select"
+            }
+        },
+        "dataBits": {
+            "sets": [
+                "7",
+                "8"
+            ],
+            "element": {
+                "element": "choice-select"
+            }
+        },
+        "type": {
+            "sets": [
+                "text",
+                "binary"
+            ],
+            "element": {
+                "element": "choice-select"
+            }
+        },
+        "inforequest": {
+            "sets": [],
+            "element": {
+                "element": "choice-display"
+            }
+        },
+        "frequencerequest": {
+            "sets": [],
+            "element": {
+                "element": "choice-display"
+            }
+        },
+        "awaitstart": {
+            "sets": [],
+            "element": {
+                "element": "choice-display"
+            }
+        },
+        "awaitend": {
+            "sets": [],
+            "element": {
+                "element": "choice-display"
+            }
+        },
+        "awaitms": {
+            "sets": [],
+            "element": {
+                "element": "choice-input-select"
+            }
+        },
+        "splitcmd": {
+            "sets": [],
+            "element": {
+                "element": "choice-display"
+            }
+        },
+        "struct": {
+            "sets": [],
+            "element": {
+                "element": "choice-display"
+            }
+        },
+        "protocol": {
+            "sets": [
+                "ic-v"
+            ],
+            "element": {
+                "element": "choice-input-select"
+            }
+        },
+        "commands": {
+            "element": {
+                "type": "folder",
+                "element": "choice-folder"
+            },
+            "content": "choice-display"
+        },
+        "information": {
+            "element": {
+                "type": "folder",
+                "element": "choice-folder"
+            },
+            "content": "choice-information-editor"
+        },
+        "commandlist": {
+            "element": {
+                "type": "folder",
+                "element": "choice-folder"
+            },
+            "content": "choice-display"
+        }
+    }
+}
