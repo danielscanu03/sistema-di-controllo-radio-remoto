@@ -130,6 +130,8 @@ class RadioPanel extends HTMLElement {
 				aspectRatio: "1/1",
 				position: "relative"
 			});
+			const microphones = this.settings.mics;
+			mic.microphone = microphones[this.settings.audioin.index];
 			micdiv.appendChild(mic);
 			this.appendChild(micdiv);
 			micdiv.appendChild(TX);
@@ -142,7 +144,8 @@ class RadioPanel extends HTMLElement {
 			let onAir = false;
 			let mic2=null;
 			if(this.settings["secondMic"].value!="none"){console.log(this.settings["secondMic"]);
-				mic2 = document.createElement("radio-mic")
+				mic2 = document.createElement("radio-mic");
+				mic2.microphone = microphones[this.settings.secondMic.index];
 				micdiv.appendChild(mic2);
 				mic2.style.top="0%";
 				mic2.style.left="20%";
@@ -273,7 +276,6 @@ class RadioPanel extends HTMLElement {
 				let microphones = [];
 				let mics = [];
 				try{mics=(await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput");microphones = mics.map(obj => obj.label);}catch (err){console.log("???");}
-				console.log(mics);
 				const choice = document.createElement("radio-choice");
 				this.appendChild(choice);
 				const advancedchoice = document.createElement("radio-choice");
@@ -972,6 +974,7 @@ class RadioMic extends HTMLElement {
 		this.style.height="100%";
 		this.useraction=false;
 		this.addEventListener("click", () => {this.useraction=true;if(this.on)this.disactive();else this.active()});
+		this.disactive();
 		this.active();
 	}
 	disactive(){
@@ -999,9 +1002,7 @@ class RadioMic extends HTMLElement {
 		this.style.opacity= 1;
 		this.on=true;
 		this.useraction=false;
-		const microphones = this.closest("radio-panel").settings.mics;
 		
-		this.microphone = microphones[this.closest("radio-panel").settings.audioin.index];
 		console.log(this.closest("radio-panel").settings);
 		this.stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: { exact: this.microphone.deviceId }}});
 
