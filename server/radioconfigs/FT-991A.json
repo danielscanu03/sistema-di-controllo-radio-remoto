@@ -18,8 +18,8 @@
             "length": 1
         }
     ],
-    "inforequest": "IF;OI;FT;RM0;SC;",
-    "frequencerequest": "IF;OI;FT;RM0;SC;",
+    "inforequest": "IF;OI;FT;RM0;SC;TS;TX;",
+    "frequencerequest": "IF;OI;FT;RM0;SC;TS;TX;",
     "commands": {
         "IF": {
             "cmd": [73, 70],
@@ -295,6 +295,70 @@
             "answerformat": "setreqsimp",
             "P1": "0fix",
             "P2": "VFOA MODE",
+            "command": "command"
+        },
+		"TS": {
+            "cmd": [84,83],
+            "setreqsimp": "TS0",
+            "setformat": [{
+                    "param": "command",
+                    "length": 2
+                }, {
+                    "param": "P1",
+                    "length": 1
+                }, {
+                    "param": "end",
+                    "length": 1
+                }
+
+            ],
+            "readreqsimp": "TS",
+            "readformat": [],
+            "answersimp": "TS0",
+            "answerformat": [{
+                    "param": "command",
+                    "length": 2
+                }, {
+                    "param": "P1",
+                    "length": 1
+                }, {
+                    "param": "end",
+                    "length": 1
+                }
+            ],
+            "P1": "TXW",
+            "command": "command"
+        },
+		"TX": {
+            "cmd": [84,88],
+            "setreqsimp": "TX0",
+            "setformat": [{
+                    "param": "command",
+                    "length": 2
+                }, {
+                    "param": "P1",
+                    "length": 1
+                }, {
+                    "param": "end",
+                    "length": 1
+                }
+
+            ],
+            "readreqsimp": "TX",
+            "readformat": [],
+            "answersimp": "TX0",
+            "answerformat": [{
+                    "param": "command",
+                    "length": 2
+                }, {
+                    "param": "P1",
+                    "length": 1
+                }, {
+                    "param": "end",
+                    "length": 1
+                }
+            ],
+            "P1": "TX radio/cat",
             "command": "command"
         },
         "RM": {
@@ -579,6 +643,15 @@
             "type": "strint",
             "format": [-9999, 9999]
         },
+		"TX radio/cat":{
+			"format": ["0", "1", "2"],
+            "decode": ["OFF/OFF", "OFF/ON", "ON/OFF"],
+			"function": {
+				"field": ["ON/OFF"],
+				"true": {"TX":"ON"},
+				"false": {"TX":"OFF"}
+			}
+		},
         "BAND TX": {
             "setformat": ["2", "3"],
             "ansformat": ["0", "1"],
@@ -587,6 +660,10 @@
         "RX CLAR": {
             "format": ["0", "1"],
             "decode": ["false", "true"]
+        },
+        "TXW": {
+            "format": ["0", "1"],
+            "decode": ["OFF", "ON"]
         },
         "VFOA RX CLAR": {
             "format": ["0", "1"],

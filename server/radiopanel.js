@@ -94,19 +94,89 @@ class RadioPanel extends HTMLElement {
 		
 		let ant = document.createElement("radio-antenna");
 		if(this.settings["connectiontype"]=="hosting"){
-			
 			let radiosett = await this.jsonConfig.radio[this.settings.radio.value];
-			console.log(radiosett);
 			this.settings["awaitms"]=radiosett["awaitms"];
 			this.settings["loopreq"]=radiosett["inforequest"];
-			let mic = document.createElement("radio-mic")
-			this.appendChild(mic);
+			let micdiv = document.createElement("div");
+			let TX = document.createElement("div");
+			TX.innerHTML="<span>ON AIR</span>";
+			
+			TX.style.background="red";
+			TX.style.position="absolute";
+			TX.style.justifyContent= "center";
+			TX.style.alignItems= "center";
+			Object.assign(TX.style, {
+				background: "red",
+				position: "position",
+				justifyContent: "center",
+				alignItems: "center",
+				display: "none",//"flex",
+				left: "50%",
+				top: "50%",
+				transform: "translate(-50%, -50%)",
+				width:"fit-content",
+				height:"fit-content",
+				minWidth:"60%",
+				minHeight:"40%",
+				opacity: "70%",
+				pointerEvents: "none"
+			});
+
+			let mic = document.createElement("radio-mic");
+			Object.assign(micdiv.style, {
+				display: "grid",
+				gridAutoFlow: "column",
+				width: "20%",
+				aspectRatio: "1/1",
+				position: "relative"
+			});
+			micdiv.appendChild(mic);
+			this.appendChild(micdiv);
+			micdiv.appendChild(TX);
 			mic.changeIcon("speaker");
 			ant.sokettype="A";
 			
 			mic.audiocatch = (audio) =>{
 				try{ant.socket?.send(audio);}catch(e){}
 			};
+			let onAir = false;
+			let mic2=null;
+			if(this.settings["secondMic"].value!="none"){console.log(this.settings["secondMic"]);
+				mic2 = document.createElement("radio-mic")
+				micdiv.appendChild(mic2);
+				mic2.style.top="0%";
+				mic2.style.left="20%";
+				micdiv.style.width="40%";
+				micdiv.style.aspectRatio="2/1";
+				//mic.changeIcon("speaker");
+				
+				mic2.audiocatch = (audio) =>{
+					try{ant.socket?.send(audio);}catch(e){}
+				};
+				mic2.disactive();
+			}
+			this.addEventListener("radio-radioinfo", (ev) => {
+				//console.log(ev.detail.detail.radioinfo.TX);
+				let Tx=ev.detail.detail.radioinfo.TX;
+				if(Tx){
+					if(Tx=="ON"&&!onAir){
+						console.log("ON");
+						onAir = true;
+						TX.style.display="flex";
+						mic.disactive();
+						if(!mic2?.useraction)mic2?.active();
+					}else if(Tx=="OFF"&&onAir){
+						console.log("OFF");
+						onAir = false;
+						TX.style.display="none";
+						if(!mic.useraction)mic.active();
+						mic2?.disactive();
+					}
+				}
+				
+				
+			});
+			
 			
 		}else if(this.settings["connectiontype"]=="guest"){
 			this.appendChild(document.createElement("radio-speaker"));
@@ -210,8 +280,8 @@ class RadioPanel extends HTMLElement {
 				this.appendChild(advancedchoice);
 				choice.options = {radio:{element: "choice-select"},audioin:{element: "choice-select"},COM:{element: "choice-select"},emitChoice:{element:"choice-button",label:"Conferma scelta"}}
 				choice.items = {radio:[...this.jsonConfig.Radio,"custom"],audioin:microphones,COM:[...com.comsnam,"new"],emitChoice:[]};//
-				advancedchoice.options = {SerialSpeed:{element: "choice-select"},stopBits:{element: "choice-select"},parity:{element: "choice-select"},dataBits:{element: "choice-select"}}
-				advancedchoice.items = pickProps(this.jsonConfig,["SerialSpeed","stopBits","parity","dataBits"]);
+				advancedchoice.options = {SerialSpeed:{element: "choice-select"},stopBits:{element: "choice-select"},parity:{element: "choice-select"},dataBits:{element: "choice-select"},secondMic:{element: "choice-select"}}
+				advancedchoice.items = {...pickProps(this.jsonConfig,["SerialSpeed","stopBits","parity","dataBits"]),secondMic:[...microphones,"none"]};
 				advancedchoice.style.display="none";
 				choice.addEventListener("buttonclick", () => {choice.emitChoice?.(choice.getCurrentSelection());});
 				const advbutton = document.createElement("button");
@@ -251,6 +321,7 @@ class RadioPanel extends HTMLElement {
 				let values = pickProps({...await this.jsonConfig.radio[value],...this.settings},["SerialSpeed","stopBits","parity","dataBits"]);
 				values = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }]));
 				advancedchoice.setCurrentSelection(values);
+				advancedchoice.setCurrentSelection({secondMic:{value:"none"}});
 				let settings = {...this.settings};
 				settings = Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, { value }]));
 				choice.setCurrentSelection(settings);
@@ -898,12 +969,13 @@ class RadioMic extends HTMLElement {
 		img.style.width="100%";
 		this.appendChild(img);
 		this.style.display="block";
-		this.style.width="20%";
-		
-		this.addEventListener("click", () => {if(this.on)this.disactive();else this.active()});
+		this.style.height="100%";
+		this.useraction=false;
+		this.addEventListener("click", () => {this.useraction=true;if(this.on)this.disactive();else this.active()});
 		this.active();
 	}
 	disactive(){
+		if(!this.on)return;
 		this.style.opacity= 0.3;
 		this.on=false;
 		if (this.source) {
@@ -915,26 +987,31 @@ class RadioMic extends HTMLElement {
 		}
 		if (this.audioWorkletNode) {
 			this.audioWorkletNode.disconnect();
+			this.audioWorkletNode=null;
 		}
 		if (this.audioContext) {
 			this.audioContext.close();
+			this.audioContext=null;
 		}
 	}
 	async active(){
+		if(this.on)return;
 		this.style.opacity= 1;
 		this.on=true;
-		const microphones = this.parentElement.settings.mics;
+		this.useraction=false;
+		const microphones = this.closest("radio-panel").settings.mics;
 		
-		this.microphone = microphones[this.parentElement.settings.audioin.index];
-		console.log(this.parentElement.settings);
+		this.microphone = microphones[this.closest("radio-panel").settings.audioin.index];
+		console.log(this.closest("radio-panel").settings);
 		this.stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: { exact: this.microphone.deviceId }}});
 
-		
-		this.audioContext = new AudioContext({ sampleRate: this.parentElement.settings.sampleRate });
+		if(this.audioContext)try{this.audioContext.close()}catch(err){}
+		this.audioContext = new AudioContext({ sampleRate: this.closest("radio-panel").settings.sampleRate });
 		await this.audioContext.audioWorklet.addModule('audio_processor.js');
 		
+		if(this.audioWorkletNode)try{this.audioWorkletNode.disconnect()}catch(err){}
 		this.audioWorkletNode = new AudioWorkletNode(this.audioContext, 'audio_processor');
-		this.audioWorkletNode.parameters.get('samplerate').setValueAtTime(this.parentElement.jsonConfig.audiopack, this.audioContext.currentTime);
+		this.audioWorkletNode.parameters.get('samplerate').setValueAtTime(this.closest("radio-panel").jsonConfig.audiopack, this.audioContext.currentTime);
 		this.source = this.audioContext.createMediaStreamSource(this.stream);
 		this.source.connect(this.audioWorkletNode);
 		let Pk = 0;
@@ -943,11 +1020,11 @@ class RadioMic extends HTMLElement {
 			//const uint8Array = new Uint8Array([ 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20]);
 			const base64String = btoa(String.fromCharCode(...uint8Array));
 			let timedel = 0;
-			try{timedel=Date.now()-(this.parentElement.jsonConfig.audiopack/this.parentElement.jsonConfig.sampleRate)*1000;}catch (err) {console.error('Error initializing audio timedel:', err);}
+			try{timedel=Date.now()-(this.closest("radio-panel").jsonConfig.audiopack/this.closest("radio-panel").jsonConfig.sampleRate)*1000;}catch (err) {console.error('Error initializing audio timedel:', err);}
 			const data = {
 			  type: 'audio',
 			  time: timedel?timedel:0,
-			  sampleRate: this.parentElement.jsonConfig.sampleRate,
+			  sampleRate: this.closest("radio-panel").jsonConfig.sampleRate,
 			  alength: base64String.length,
 			  audio: base64String,
 			  paket: Pk,

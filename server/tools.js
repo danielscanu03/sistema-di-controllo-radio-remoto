@@ -595,10 +595,14 @@ class Interpreter{
 			//console.log(utilityformat);
 			
 		}
-		
+		this.functions(ret,information);
 		return ret;
 	}
-	
+	functions(data,information){
+		if(data)Object.entries(data.format).forEach(([key,val]) => {let func = information[key].function;if(func){
+			if(val==func.field)Object.assign(data.format,func.true); else Object.assign(data.format,func.false);
+		}});
+	}
 	
 	conversionbyteformat(type,key,value,information,lenght){
 		
@@ -654,7 +658,7 @@ class Interpreter{
 					let form = null;
 					try{form=this.checkstruct(buffer,format);}catch(err){}
 					if(form)form=validateformat(type,form,commandlist[key],information);
-					if(form&&Object.entries(form).length!=0)ret.push({type,format:form});
+					if(form&&Object.entries(form).length!=0)ret.push({type,format:form,command:cmd});
 				};
 				
 				process("set",cmd.setformat,process);
