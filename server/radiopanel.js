@@ -137,12 +137,12 @@ class RadioPanel extends HTMLElement {
 			micdiv.appendChild(TX);
 			mic.changeIcon("speaker");
 			ant.sokettype="A";
+			let mic2=null;
 			
 			mic.audiocatch = (audio) =>{
-				try{ant.socket?.send(audio);}catch(e){}
+				try{ant.socket?.send(audio);mic2?.disactive();}catch(e){}
 			};
 			let onAir = false;
-			let mic2=null;
 			if(this.settings["secondMic"].value!="none"){console.log(this.settings["secondMic"]);
 				mic2 = document.createElement("radio-mic");
 				mic2.microphone = microphones[this.settings.secondMic.index];
@@ -156,7 +156,6 @@ class RadioPanel extends HTMLElement {
 				mic2.audiocatch = (audio) =>{
 					try{ant.socket?.send(audio);}catch(e){}
 				};
-				mic2.disactive();
 			}
 			this.addEventListener("radio-radioinfo", (ev) => {
 				//console.log(ev.detail.detail.radioinfo.TX);
@@ -179,6 +178,7 @@ class RadioPanel extends HTMLElement {
 				
 				
 			});
+			mic.active();
 			
 			
 		}else if(this.settings["connectiontype"]=="guest"){
@@ -246,11 +246,20 @@ class RadioPanel extends HTMLElement {
 			//console.log(port);
 			await port.open();
 			this.addEventListener("radio-command", (ev) => {let command = ev.detail;
+				console.log(command);
 				port.send({type:"pack",command:command.detail.command,format:"set"});
 			});
 			this.addEventListener("radio-radioinfo", (ev) => {let info = ev.detail;
 				if(info.targetElement?.localName=="radio-antenna")
 					port.send({type:"pack",update:info.detail.update,radioinfo:info.detail.radioinfo,format:"set"});
+			});
+			this.addEventListener("radio-update", (ev) => {let update = ev.detail;
+				if(update.targetElement?.localName=="display-frequence"||update.targetElement?.localName=="radio-board")
+					port.send({type:"pack",update:update.detail,radioinfo:this.radioinfo,format:"set"});
+			});
+			this.addEventListener("radio-setEvent", (ev) => {let event = ev.detail;
+				console.log(event)
+				port.send({type:"pack",command:event.detail,format:"set"});
 			});
 		}
 	}
@@ -975,7 +984,6 @@ class RadioMic extends HTMLElement {
 		this.useraction=false;
 		this.addEventListener("click", () => {this.useraction=true;if(this.on)this.disactive();else this.active()});
 		this.disactive();
-		this.active();
 	}
 	disactive(){
 		if(!this.on)return;

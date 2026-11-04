@@ -6,7 +6,7 @@
     "dataBits": ["7", "8"],
     "audioout": ["none"],
     "audioin": ["none"],
-    "audiopack": 8192,
+    "audiopack": 32568,
     "radio": {
         "FT-991A": "/radioconfigs/FT-991A.json",
         "IC-718": {

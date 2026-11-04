@@ -599,7 +599,7 @@ class Interpreter{
 		return ret;
 	}
 	functions(data,information){
-		if(data)Object.entries(data.format).forEach(([key,val]) => {let func = information[key].function;if(func){
+		if(data&&data.format)Object.entries(data.format).forEach(([key,val]) => {let func = information[key].function;if(func){
 			if(val==func.field)Object.assign(data.format,func.true); else Object.assign(data.format,func.false);
 		}});
 	}
